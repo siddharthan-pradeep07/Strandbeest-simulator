@@ -111,3 +111,18 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+.press-btn 
+{
+    transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.press-btn:hover 
+{
+    transform: scale(0.98);
+}
+
+.press-btn:active 
+{
+    transform: scale(0.92);
+}

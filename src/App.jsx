@@ -194,11 +194,16 @@ function make_transform(lengths, canvas_width, canvas_height)
   return to_screen;
 }
 
-function PreviewCanvas({ lengths })
+function PreviewCanvas({ lengths, speed })
 {
   const canvas_ref   = useRef(null);
   const lengths_ref  = useRef(lengths);
   const angle_ref    = useRef(0);
+  const speed_ref    = useRef(speed);
+
+  useEffect(() => {
+    speed_ref.current = speed;
+  }, [speed]);
 
   useEffect(() => {
     lengths_ref.current = lengths;
@@ -238,7 +243,7 @@ function PreviewCanvas({ lengths })
 
       if (current_lengths)
       {
-        angle_ref.current += dt * 1.2;
+        angle_ref.current += dt * speed_ref.current;
 
         const points = solve_leg(angle_ref.current, current_lengths);
 
@@ -280,6 +285,7 @@ export default function App()
 {
   const input_refs = useRef([]);
   const [lengths, set_lengths] = useState(create_default_lengths);
+  const [speed, set_speed] = useState(1.2);
 
   function handle_revert()
   {
@@ -310,7 +316,21 @@ export default function App()
   return (
     <div style={page_style}>
       <div style={panel_style}>
-        <PreviewCanvas lengths={lengths} />
+        <PreviewCanvas lengths={lengths} speed={speed} />
+        <div style={speed_panel_style}>
+          <span style={speed_label_style}>
+            Speed: {speed.toFixed(1)}
+          </span>
+          <input 
+          type="range"
+          min="0"
+          max="7"
+          step="0.1"
+          value={speed}
+          onChange={(event) => set_speed(Number(event.target.value))}
+          style={slide_bar_styles}
+          />
+        </div>
       </div>
       <div style={right_panel_style}>
         <div style={inputs_panel_style}>
@@ -396,13 +416,16 @@ const panel_style =
   border: '5px inset #adadad',
   background: '#e8e8e8',
   borderRadius: '1px',
+  display: 'flex',
+  flexDirection: 'column',
 };
 
 const preview_canvas_style =
 {
   display: 'block',
   width: '120%',
-  height: '100%',
+  // height: '100%',
+  flex: 1,
 };
 
 const right_panel_style =
@@ -479,4 +502,30 @@ const input_style =
   color: '#a5a8ad',
   fontSize: '14px',
   minWidth: 0,
+};
+
+const speed_panel_style =
+{
+  height: '54px',
+  borderTop: '3px inset #adadad',
+  background: '#bdbdbd',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  padding: '6px 12px',
+  boxSizing: 'border-box',
+};
+
+const speed_label_style =
+{
+  color: '#333333',
+  fontSize: '13px',
+  width: '80px',
+};
+
+const slide_bar_styles = 
+{
+  flex: 1,
+  accentColor: '#576066',
+  cursor: 'pointer',
 };

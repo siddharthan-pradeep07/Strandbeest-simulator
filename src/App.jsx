@@ -3,66 +3,72 @@ import { useEffect, useRef, useState } from 'react';
 const holy_numbers = [38.0, 41.5, 39.3, 40.1, 55.8, 39.4, 36.7, 65.7, 49.0, 50.0, 61.9, 7.8, 15.0];
 const length_keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'];
 
-function circle_intersection(center_a, radius_a, center_b, radius_b)
+function inter(p1, l1, p2, l2)
 {
-  const dx = center_b.x - center_a.x;
-  const dy = center_b.y - center_a.y;
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
   const dist = Math.hypot(dx, dy);
 
-  if (dist > radius_a + radius_b || dist < Math.abs(radius_a - radius_b) || dist === 0)
-  {
-    return null;
-  }
+  if (dist === 0 || dist > l1 + l2 || dist < Math.abs(l1 - l2)) return null;
 
-  const a_offset = (radius_a * radius_a - radius_b * radius_b + dist * dist) / (2 * dist);
-  const h_sq = radius_a * radius_a - a_offset * a_offset;
+  const a  = (l1 * l1 - l2 * l2 + dist * dist) / (2 * dist);
+  const h_sq = l1 * l1 - a * a;
+  if (h_sq < 0) return null;
 
-  if (h_sq < 0)
-  {
-    return null;
-  }
+  const h  = Math.sqrt(h_sq);
+  const mx = p1.x + (a * dx) / dist;
+  const my = p1.y + (a * dy) / dist;
+  const rx = -(h * dy) / dist;
+  const ry =  (h * dx) / dist;
 
-  const h_offset = Math.sqrt(h_sq);
-  const mid_x = center_a.x + (a_offset * dx) / dist;
-  const mid_y = center_a.y + (a_offset * dy) / dist;
+  const r1    = { x: mx + rx, y: my + ry };
+  const cross = dx * (r1.y - p1.y) - dy * (r1.x - p1.x);
 
-  return {
-    x: mid_x - h_offset * (dy / dist),
-    y: mid_y + h_offset * (dx / dist),
-  };
+  return cross < 0 ? r1 : { x: mx - rx, y: my - ry };
 }
 
 function solve_leg(theta, lengths)
 {
   const z_point = { x: 0, y: 0 };
-  const ground_y = lengths.l;
-  const y_point = 
-  {
-    x: -lengths.a,
-    y: ground_y
-  };
+  const y_point = { x: -lengths.a, y: lengths.l };
 
   const x_point = {
     x: lengths.m * Math.cos(theta),
     y: lengths.m * Math.sin(theta),
   };
 
-  const w_point = circle_intersection(x_point, lengths.j, y_point, lengths.b);
+  const w_point = inter(x_point, lengths.j, y_point, lengths.b);
   if (!w_point) return null;
 
-  const v_point = circle_intersection(w_point, lengths.e, y_point, lengths.d);
+  const v_point = inter(w_point, lengths.e, y_point, lengths.d);
   if (!v_point) return null;
 
-  const u_point = circle_intersection(y_point, lengths.c, x_point, lengths.k);
+  const u_point = inter(y_point, lengths.c, x_point, lengths.k);
   if (!u_point) return null;
 
-  const t_point = circle_intersection(v_point, lengths.f, u_point, lengths.g);
+  const t_point = inter(v_point, lengths.f, u_point, lengths.g);
   if (!t_point) return null;
 
-  const s_point = circle_intersection(t_point, lengths.h, u_point, lengths.i);
+  const s_point = inter(t_point, lengths.h, u_point, lengths.i);
   if (!s_point) return null;
 
   return { z_point, y_point, x_point, w_point, v_point, u_point, t_point, s_point };
+}
+function compute_traces(lengths)
+{
+  const foot_trace  = [];
+  const steps = 120;
+
+  for (let i = 0; i < steps; i++)
+  {
+    const theta  = (i / steps) * Math.PI * 2;
+    const points = solve_leg(theta, lengths);
+    if (points) foot_trace.push(points.s_point);
+  }
+
+  const crank_radius = lengths.m;
+
+  return { foot_trace, crank_radius };
 }
 
 const bar_connections = [
@@ -79,63 +85,120 @@ const bar_connections = [
   ['u_point', 's_point'],
 ];
 
-function draw_leg(ctx, canvas_width, canvas_height, points)
+function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen)
 {
-  const all_points = Object.values(points);
-  const xs = all_points.map((point) => point.x);
-  const ys = all_points.map((point) => point.y);
+  const { foot_trace, crank_radius } = traces;
+  const z_screen = to_screen(points.z_point);
+  const r_screen = crank_radius * to_screen._scale;
 
-  const min_x = Math.min(...xs);
-  const max_x = Math.max(...xs);
-  const min_y = Math.min(...ys);
-  const max_y = Math.max(...ys);
+  ctx.strokeStyle = 'rgba(131, 140, 189, 0.64)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(z_screen.x, z_screen.y, r_screen, 0, Math.PI * 2);
+  ctx.stroke();
 
-  const bbox_width = max_x - min_x || 1;
-  const bbox_height = max_y - min_y || 1;
-  const center_x = (min_x + max_x) / 2;
-  const center_y = (min_y + max_y) / 2;
+  if (foot_trace.length > 1)
+  {
+    ctx.strokeStyle = 'rgba(220, 100, 120, 0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const first = to_screen(foot_trace[0]);
+    ctx.moveTo(first.x, first.y);
+    for (let i = 1; i < foot_trace.length; i++)
+    {
+      const p = to_screen(foot_trace[i]);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
 
-  const scale = Math.min(canvas_width / bbox_width, canvas_height / bbox_height) * 0.6;
-
-  const to_world = (point) => ({
-    x: canvas_width / 2 + (point.x - center_x) * scale,
-    y: canvas_height / 2 + (point.y - center_y) * scale,
-  });
-
-  ctx.strokeStyle = '#1d2630';
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#1a85cc';
+  ctx.lineWidth = 2.5;
 
   for (const [from_key, to_key] of bar_connections)
   {
     const from = points[from_key];
-    const to = points[to_key];
+    const to   = points[to_key];
     if (!from || !to) continue;
-    const from_world = to_world(from);
-    const to_world_point = to_world(to);
+
+    const fs = to_screen(from);
+    const ts = to_screen(to);
 
     ctx.beginPath();
-    ctx.moveTo(from_world.x, from_world.y);
-    ctx.lineTo(to_world_point.x, to_world_point.y);
+    ctx.moveTo(fs.x, fs.y);
+    ctx.lineTo(ts.x, ts.y);
     ctx.stroke();
   }
 
   for (const key of Object.keys(points))
   {
-    const world_point = to_world(points[key]);
-
-    ctx.fillStyle = '#1d2630';
+    const sp = to_screen(points[key]);
+    ctx.fillStyle = '#111';
     ctx.beginPath();
-    ctx.arc(world_point.x, world_point.y, 4, 0, Math.PI * 2);
+    ctx.arc(sp.x, sp.y, 4, 0, Math.PI * 2);
     ctx.fill();
   }
 }
 
+function make_transform(lengths, canvas_width, canvas_height)
+{
+  let min_x = Infinity, max_x = -Infinity;
+  let min_y = Infinity, max_y = -Infinity;
+  const steps = 120;
+  const rotation = 0.4;
+
+  for (let i = 0; i < steps; i++)
+  {
+    const theta  = (i / steps) * Math.PI * 2;
+    const points = solve_leg(theta, lengths);
+    if (!points) continue;
+
+    
+    for (const point of Object.values(points))
+      {
+        const p = rotate(point, rotation);
+        if (p.x < min_x) min_x = p.x;
+        if (p.x > max_x) max_x = p.x;
+        if (p.y < min_y) min_y = p.y;
+        if (p.y > max_y) max_y = p.y;
+}
+  }
+
+  const bbox_w = max_x - min_x || 1;
+  const bbox_h = max_y - min_y || 1;
+  const scale  = Math.min(canvas_width / bbox_w, canvas_height / bbox_h) * 0.65;
+  const origin = rotate({ x: 0, y: 0 }, rotation);
+  const cx = canvas_width  / 2 - origin.x * scale;
+  const cy = canvas_height / 2 + origin.y * scale;
+
+  function to_screen(point)
+  {
+    const p = rotate(point, rotation);
+    return { x: p.x * scale + cx, y: -p.y * scale + cy };
+  }
+
+  function rotate(point, angle)
+  {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    return {
+      x: point.x * cos - point.y * sin,
+      y: point.x * sin + point.y * cos,
+    };
+  }
+
+  to_screen._scale = scale;
+
+  return to_screen;
+}
+
 function PreviewCanvas({ lengths })
 {
-  const canvas_ref = useRef(null);
-  const lengths_ref = useRef(lengths);
-  const angle_ref = useRef(0);
-  const prev_points_ref = useRef({});
+  const canvas_ref   = useRef(null);
+  const lengths_ref  = useRef(lengths);
+  const angle_ref    = useRef(0);
 
   useEffect(() => {
     lengths_ref.current = lengths;
@@ -143,34 +206,25 @@ function PreviewCanvas({ lengths })
 
   useEffect(() => {
     const canvas = canvas_ref.current;
-    const ctx = canvas.getContext('2d');
+    const ctx    = canvas.getContext('2d');
     const logical_size_ref = { current: { width: 0, height: 0 } };
     let animation_id;
     let last_time = performance.now();
 
     const resize_observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      const css_width = entry.contentRect.width;
-      const css_height = entry.contentRect.height;
-      const device_pixel_ratio = window.devicePixelRatio || 1;
+      const entry           = entries[0];
+      const css_width       = entry.contentRect.width;
+      const css_height      = entry.contentRect.height;
+      const dpr             = window.devicePixelRatio || 1;
 
-      canvas.width = css_width * device_pixel_ratio;
-      canvas.height = css_height * device_pixel_ratio;
-      ctx.setTransform(device_pixel_ratio, 0, 0, device_pixel_ratio, 0, 0);
+      canvas.width  = css_width  * dpr;
+      canvas.height = css_height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       logical_size_ref.current = { width: css_width, height: css_height };
     });
 
     resize_observer.observe(canvas);
-
-    function chooseStable(curr, prev)
-    {
-      if (!curr) return prev || { x: 0, y: 0 };
-      if (!prev) return curr;
-      const d1 = Math.hypot(curr.x - prev.x, curr.y - prev.y);
-      const d2 = Math.hypot(curr.x - prev.x, curr.y - prev.y);
-      return d1 <= d2 ? curr : prev;
-    }
 
     function frame(now)
     {
@@ -186,24 +240,13 @@ function PreviewCanvas({ lengths })
       {
         angle_ref.current += dt * 1.2;
 
-        const raw_points = solve_leg(angle_ref.current, current_lengths);
-        if (!raw_points) return;
-        const prev = prev_points_ref.current;
-        const points = 
-        {
-          ...raw_points,
-          w_point: chooseStable(raw_points.w_point, prev.w_point),
-          v_point: chooseStable(raw_points.v_point, prev.v_point),
-          u_point: chooseStable(raw_points.u_point, prev.u_point),
-          t_point: chooseStable(raw_points.t_point, prev.t_point),
-          s_point: chooseStable(raw_points.s_point, prev.s_point),
-        };
-
-        prev_points_ref.current = points;
+        const points = solve_leg(angle_ref.current, current_lengths);
 
         if (points)
         {
-          draw_leg(ctx, width, height, points);
+          const to_screen = make_transform(current_lengths, width, height);
+          const traces    = compute_traces(current_lengths);
+          draw_scene(ctx, width, height, points, traces, to_screen);
         }
       }
 
@@ -243,7 +286,7 @@ export default function App()
 
     for (let index = 0; index < length_keys.length; index++)
     {
-      const raw_value = input_refs.current[index]?.value;
+      const raw_value   = input_refs.current[index]?.value;
       const parsed_value = parseFloat(raw_value);
 
       new_lengths[length_keys[index]] = Number.isFinite(parsed_value) ? parsed_value : holy_numbers[index];
@@ -262,7 +305,7 @@ export default function App()
           <p>Controls (Measurements)</p>
           <div style={button_row_style}>
             <button style={button_style} onClick={handle_save}>save</button>
-            <button style={button_style} onClick={handle_revert}>revert to original numbers</button>
+            <button style={button_style} onClick={handle_revert}>revert</button>
           </div>
           <label style={input_row_style}>
             <span style={input_label_style}>A - B</span>
@@ -322,7 +365,7 @@ export default function App()
   );
 }
 
-const page_style = 
+const page_style =
 {
   display: 'flex',
   width: '100vw',
@@ -333,24 +376,24 @@ const page_style =
   overflow: 'hidden',
 };
 
-const panel_style = 
+const panel_style =
 {
   width: 'calc(80vh - 40px)',
   height: 'calc(80vh - 40px)',
   flexShrink: 0,
   border: '5px inset #adadad',
-  background: '#ffffff',
+  background: '#e8e8e8',
   borderRadius: '1px',
 };
 
-const preview_canvas_style = 
+const preview_canvas_style =
 {
   display: 'block',
-  width: '100%',
+  width: '120%',
   height: '100%',
 };
 
-const right_panel_style = 
+const right_panel_style =
 {
   flex: 1,
   height: 'calc(100vh - 40px)',
@@ -366,7 +409,7 @@ const right_panel_style =
   minWidth: 0,
 };
 
-const inputs_panel_style = 
+const inputs_panel_style =
 {
   width: '300px',
   height: '98%',
@@ -380,14 +423,14 @@ const inputs_panel_style =
   gap: '10px',
 };
 
-const button_row_style = 
+const button_row_style =
 {
   display: 'flex',
   gap: '8px',
   paddingBottom: '6px',
 };
 
-const button_style = 
+const button_style =
 {
   flex: 1,
   height: '90%',
@@ -400,25 +443,24 @@ const button_style =
   cursor: 'pointer',
 };
 
-const input_row_style = 
+const input_row_style =
 {
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
 };
 
-const input_label_style = 
+const input_label_style =
 {
   width: '48px',
   color: '#d8d8d8',
   fontSize: '13px',
 };
 
-const input_style = 
+const input_style =
 {
   flex: 1,
   padding: '8px 10px',
-  borderRadius: '8px',
   border: '3px inset #383838',
   background: '#111111',
   borderRadius: '1px',

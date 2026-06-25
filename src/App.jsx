@@ -264,10 +264,22 @@ function PreviewCanvas({ lengths })
   return <canvas ref={canvas_ref} style={preview_canvas_style} />;
 }
 
+function create_default_lengths()
+{
+  const result = {};
+
+  for (let i = 0; i < length_keys.length; i++)
+  {
+    result[length_keys[i]] = holy_numbers[i];
+  }
+
+  return result;
+}
+
 export default function App()
 {
   const input_refs = useRef([]);
-  const [lengths, set_lengths] = useState(null);
+  const [lengths, set_lengths] = useState(create_default_lengths);
 
   function handle_revert()
   {
@@ -309,55 +321,55 @@ export default function App()
           </div>
           <label style={input_row_style}>
             <span style={input_label_style}>A - B</span>
-            <input style={input_style} ref={(el) => { input_refs.current[0] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[0]} ref={(el) => { input_refs.current[0] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>B - C</span>
-            <input style={input_style} ref={(el) => { input_refs.current[1] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[1]} ref={(el) => { input_refs.current[1] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>C - D</span>
-            <input style={input_style} ref={(el) => { input_refs.current[2] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[2]} ref={(el) => { input_refs.current[2] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>D - E</span>
-            <input style={input_style} ref={(el) => { input_refs.current[3] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[3]} ref={(el) => { input_refs.current[3] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>E - F</span>
-            <input style={input_style} ref={(el) => { input_refs.current[4] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[4]} ref={(el) => { input_refs.current[4] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>F - G</span>
-            <input style={input_style} ref={(el) => { input_refs.current[5] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[5]} ref={(el) => { input_refs.current[5] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>G - H</span>
-            <input style={input_style} ref={(el) => { input_refs.current[6] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[6]} ref={(el) => { input_refs.current[6] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>H - I</span>
-            <input style={input_style} ref={(el) => { input_refs.current[7] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[7]} ref={(el) => { input_refs.current[7] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>I - J</span>
-            <input style={input_style} ref={(el) => { input_refs.current[8] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[8]} ref={(el) => { input_refs.current[8] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>J - K</span>
-            <input style={input_style} ref={(el) => { input_refs.current[9] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[9]} ref={(el) => { input_refs.current[9] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>K - L</span>
-            <input style={input_style} ref={(el) => { input_refs.current[10] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[10]}  ref={(el) => { input_refs.current[10] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>L - M</span>
-            <input style={input_style} ref={(el) => { input_refs.current[11] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[11]} ref={(el) => { input_refs.current[11] = el; }} />
           </label>
           <label style={input_row_style}>
             <span style={input_label_style}>M - N</span>
-            <input style={input_style} ref={(el) => { input_refs.current[12] = el; }} />
+            <input style={input_style} defaultValue={holy_numbers[12]} ref={(el) => { input_refs.current[12] = el; }} />
           </label>
         </div>
       </div>

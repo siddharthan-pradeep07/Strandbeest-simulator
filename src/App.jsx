@@ -85,7 +85,7 @@ const bar_connections = [
   ['u_point', 's_point'],
 ];
 
-function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen)
+function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen, show_labels)
 {
   const { foot_trace, crank_radius } = traces;
   const z_screen = to_screen(points.z_point);
@@ -138,6 +138,30 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen)
     ctx.beginPath();
     ctx.arc(sp.x, sp.y, 4, 0, Math.PI * 2);
     ctx.fill();
+  }
+   
+  if (show_labels)
+  {
+    ctx.fillStyle = '#1a2ecc';
+    ctx.font = '15px monospace';
+    ctx.textAlign = 'center';
+
+    const label_map = 
+    {
+      z_point: 'a',
+      y_point: 'b',
+      x_point: 'c',
+      w_point: 'd',
+      v_point: 'e',
+      u_point: 'f',
+      t_point: 'g',
+      s_point: 'h',
+    };
+    for (const [key, label] of Object.entries(label_map))
+    {
+      const sp = to_screen(points[key]);
+      ctx.fillText(label, sp.x, sp.y, - 9)
+    }
   }
 }
 
@@ -194,12 +218,14 @@ function make_transform(lengths, canvas_width, canvas_height)
   return to_screen;
 }
 
-function PreviewCanvas({ lengths, speed })
+// ADD
+function PreviewCanvas({ lengths, speed, show_labels })
 {
-  const canvas_ref   = useRef(null);
-  const lengths_ref  = useRef(lengths);
-  const angle_ref    = useRef(0);
-  const speed_ref    = useRef(speed);
+  const canvas_ref      = useRef(null);
+  const lengths_ref     = useRef(lengths);
+  const angle_ref       = useRef(0);
+  const speed_ref       = useRef(speed);
+  const show_labels_ref = useRef(show_labels);
 
   useEffect(() => {
     speed_ref.current = speed;
@@ -210,6 +236,10 @@ function PreviewCanvas({ lengths, speed })
   }, [lengths]);
 
   useEffect(() => {
+    show_labels_ref.current = show_labels;
+  }, [show_labels]);
+
+  useEffect(() => {
     const canvas = canvas_ref.current;
     const ctx    = canvas.getContext('2d');
     const logical_size_ref = { current: { width: 0, height: 0 } };
@@ -217,10 +247,10 @@ function PreviewCanvas({ lengths, speed })
     let last_time = performance.now();
 
     const resize_observer = new ResizeObserver((entries) => {
-      const entry           = entries[0];
-      const css_width       = entry.contentRect.width;
-      const css_height      = entry.contentRect.height;
-      const dpr             = window.devicePixelRatio || 1;
+      const entry      = entries[0];
+      const css_width  = entry.contentRect.width;
+      const css_height = entry.contentRect.height;
+      const dpr        = window.devicePixelRatio || 1;
 
       canvas.width  = css_width  * dpr;
       canvas.height = css_height * dpr;
@@ -243,7 +273,7 @@ function PreviewCanvas({ lengths, speed })
 
       if (current_lengths)
       {
-        angle_ref.current += dt * speed_ref.current;
+        angle_ref.current -= dt * speed_ref.current;
 
         const points = solve_leg(angle_ref.current, current_lengths);
 
@@ -251,7 +281,7 @@ function PreviewCanvas({ lengths, speed })
         {
           const to_screen = make_transform(current_lengths, width, height);
           const traces    = compute_traces(current_lengths);
-          draw_scene(ctx, width, height, points, traces, to_screen);
+          draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current);
         }
       }
 
@@ -286,6 +316,7 @@ export default function App()
   const input_refs = useRef([]);
   const [lengths, set_lengths] = useState(create_default_lengths);
   const [speed, set_speed] = useState(1.2);
+  const [show_labels, set_show_labels] = useState(false);
 
   function handle_revert()
   {
@@ -316,14 +347,14 @@ export default function App()
   return (
     <div style={page_style}>
       <div style={panel_style}>
-        <PreviewCanvas lengths={lengths} speed={speed} />
+        <PreviewCanvas lengths={lengths} speed={speed} show_labels={show_labels} />
         <div style={speed_panel_style}>
           <span style={speed_label_style}>
             Speed: {speed.toFixed(1)}
           </span>
           <input 
           type="range"
-          min="0"
+          min="0.1"
           max="7"
           step="0.1"
           value={speed}
@@ -331,6 +362,11 @@ export default function App()
           style={slide_bar_styles}
           />
         </div>
+        <label style={show_labels_label_style}>
+          <input type="checkbox" checked={show_labels} onChange={(event) => set_show_labels(event.target.checked)}
+          style={show_labels_checkbox_style} />
+          label joints
+        </label>
       </div>
       <div style={right_panel_style}>
         <div style={inputs_panel_style}>
@@ -410,7 +446,7 @@ const page_style =
 
 const panel_style =
 {
-  width: 'calc(80vh - 40px)',
+  width: 'calc(100vh - 40px)',
   height: 'calc(80vh - 40px)',
   flexShrink: 0,
   border: '5px inset #adadad',
@@ -423,7 +459,7 @@ const panel_style =
 const preview_canvas_style =
 {
   display: 'block',
-  width: '120%',
+  width: '100%',
   // height: '100%',
   flex: 1,
 };
@@ -528,4 +564,24 @@ const slide_bar_styles =
   flex: 1,
   accentColor: '#576066',
   cursor: 'pointer',
+};
+
+const show_labels_label_style =
+{
+  display: 'flex',
+  alignItems: 'center',
+  gap: '5px',
+  color: '#333333',
+  fontSize: '12px',
+  cursor: 'pointer',
+  //width: '100%',
+  width: '25%',
+};
+
+const show_labels_checkbox_style =
+{
+  accentColor: '#576066',
+  cursor: 'pointer',
+  width: '13px',
+  height: '13px',
 };

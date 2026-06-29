@@ -27,6 +27,29 @@ function inter(p1, l1, p2, l2)
   return cross < 0 ? r1 : { x: mx - rx, y: my - ry };
 }
 
+function inter_mirror(p1,l1,p2,l2)
+{
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const dist = Math.hypot(dx, dy);
+
+  if (dist === 0 || dist > l1 + l2 || dist < Math.abs(l1 - l2)) return null;
+  const a  = (l1 * l1 - l2 * l2 + dist * dist) / (2 * dist);
+  const h_sq = l1 * l1 - a * a;
+  if (h_sq < 0) return null;
+
+  const h  = Math.sqrt(h_sq);
+  const mx = p1.x + (a * dx) / dist;
+  const my = p1.y + (a * dy) / dist;
+  const rx = -(h * dy) / dist;
+  const ry =  (h * dx) / dist;
+
+  const r1    = { x: mx + rx, y: my + ry };
+  const cross = dx * (r1.y - p1.y) - dy * (r1.x - p1.x);
+
+  return cross < 0 ? { x: mx - rx, y: my - ry } : r1;
+}
+
 function solve_leg(theta, lengths)
 {
   const z_point = { x: 0, y: 0 };
@@ -54,6 +77,35 @@ function solve_leg(theta, lengths)
 
   return { z_point, y_point, x_point, w_point, v_point, u_point, t_point, s_point };
 }
+
+function solve_leg_mirror(theta, lengths)
+{
+  const z_point = { x: 0, y: 0 };
+  const y_point = { x: lengths.a, y: lengths.l };
+
+  const x_point = {
+    x: lengths.m * Math.cos(theta),
+    y: lengths.m * Math.sin(theta),
+  };
+
+  const w_point = inter_mirror(x_point, lengths.j, y_point, lengths.b);
+  if (!w_point) return null;
+
+  const v_point = inter_mirror(w_point, lengths.e, y_point, lengths.d);
+  if (!v_point) return null;
+
+  const u_point = inter_mirror(y_point, lengths.c, x_point, lengths.k);
+  if (!u_point) return null;
+
+  const t_point = inter_mirror(v_point, lengths.f, u_point, lengths.g);
+  if (!t_point) return null;
+
+  const s_point = inter_mirror(t_point, lengths.h, u_point, lengths.i);
+  if (!s_point) return null;
+
+  return { z_point, y_point, x_point, w_point, v_point, u_point, t_point, s_point };
+}
+
 function compute_traces(lengths, mirror)
 {
   const foot_trace  = [];
@@ -68,12 +120,11 @@ function compute_traces(lengths, mirror)
 
     if (mirror)
     {
-      const points_mirror = solve_leg(theta + Math.PI, lengths);
+      const points_mirror = solve_leg_mirror(theta, lengths);
       if (points_mirror) foot_trace_mirror.push
-      ({
-         x: -points_mirror.s_point.x, 
-         y: points_mirror.s_point.y
-      })
+      (
+        points_mirror.s_point
+      );
     }
   }
 
@@ -142,23 +193,17 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
 
   if (mirror)
   {
-    const mirror_points = solve_leg(angle + Math.PI, lengths);
+    const mirror_points = solve_leg_mirror(angle,lengths);
 
     if (mirror_points)
-    {
-      const flipped = {};
-      for (const [key, point] of Object.entries(mirror_points))
-      {
-        flipped[key] = {x: -point.x, y: point.y};
-      }
-      
+    {   
       ctx.strokeStyle = '#1e291f';
       ctx.lineWidth = 2.5;
 
       for (const [from_key, to_key] of bar_connections)
       {
-        const from = flipped[from_key];
-        const to = flipped[to_key];
+        const from = mirror_points[from_key];
+        const to = mirror_points[to_key];
         if (!from || !to) continue;
         const fs = to_screen(from);
         const ts = to_screen(to);
@@ -169,9 +214,9 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
         ctx.stroke();
       }
 
-      for (const key of Object.keys(flipped))
+      for (const key of Object.keys(mirror_points))
       {
-        const sp = to_screen(flipped[key]);
+        const sp = to_screen(mirror_points[key]);
         ctx.fillStyle = '#111111';
         ctx.beginPath();
         ctx.arc(sp.x, sp.y, 4, 0, Math.PI * 2);
@@ -232,7 +277,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
   }
 }
 
-function make_transform(lengths, canvas_width, canvas_height, mirror)
+function make_transform(lengths, canvas_width, canvas_height)
 {
   let min_x = Infinity, max_x = -Infinity;
   let min_y = Infinity, max_y = -Infinity;
@@ -253,21 +298,6 @@ function make_transform(lengths, canvas_width, canvas_height, mirror)
         if (p.x > max_x) max_x = p.x;
         if (p.y < min_y) min_y = p.y;
         if (p.y > max_y) max_y = p.y;
-      }
-
-      if(mirror)
-      {
-        const points_mirror = solve_leg(theta + Math.PI, lengths);
-        if (!points_mirror) continue;
-
-        for (const point of Object.values(points_mirror))
-        {
-          const p = rotate ({ x: -point.x, y: point.y}, rotation);
-          if (p.x < min_x) min_x = p.x;
-          if (p.x > max_x) max_x = p.x;
-          if (p.y < min_y) min_y = p.y;
-          if (p.y > max_y) max_y = p.y;
-        }
       }
   }
 
@@ -366,7 +396,7 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror })
 
         if (points)
         {
-          const to_screen = make_transform(current_lengths, width, height, mirror_ref.current);
+          const to_screen = make_transform(current_lengths, width, height);
           const traces    = compute_traces(current_lengths, mirror_ref.current);
           draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current, mirror_ref.current, current_lengths, angle_ref.current);
         }

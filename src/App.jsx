@@ -142,9 +142,9 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
    
   if (show_labels)
   {
-    ctx.fillStyle = '#1a2ecc';
-    ctx.font = '15px monospace';
-    ctx.textAlign = 'center';
+    ctx.fillStyle = '#10174d';
+    ctx.font = '20px monospace';
+    ctx.textAlign = 'left';
 
     const label_map = 
     {
@@ -160,7 +160,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
     for (const [key, label] of Object.entries(label_map))
     {
       const sp = to_screen(points[key]);
-      ctx.fillText(label, sp.x, sp.y, - 9)
+      ctx.fillText(label, sp.x, sp.y - 9)
     }
   }
 }
@@ -346,34 +346,40 @@ export default function App()
 
   return (
     <div style={page_style}>
-      <div style={panel_style}>
-        <PreviewCanvas lengths={lengths} speed={speed} show_labels={show_labels} />
-        <div style={speed_panel_style}>
-          <span style={speed_label_style}>
-            Speed: {speed.toFixed(1)}
-          </span>
-          <input 
-          type="range"
-          min="0.1"
-          max="7"
-          step="0.1"
-          value={speed}
-          onChange={(event) => set_speed(Number(event.target.value))}
-          style={slide_bar_styles}
-          />
+      <div style={left_column_style}>
+        <div style={panel_style}>
+          <PreviewCanvas lengths={lengths} speed={speed} show_labels={show_labels} />
         </div>
-        <label style={show_labels_label_style}>
-          <input type="checkbox" checked={show_labels} onChange={(event) => set_show_labels(event.target.checked)}
-          style={show_labels_checkbox_style} />
-          label joints
-        </label>
+        <div style={controls_card_style}>
+          <div style={speed_strip_style}>
+            <span style={speed_label_style}>
+              Speed: {speed.toFixed(1)}
+            </span>
+            <input 
+            type="range"
+            min="0.1"
+            max="12"
+            step="0.1"
+            value={speed}
+            onChange={(event) => set_speed(Number(event.target.value))}
+            style={slide_bar_styles}
+            />
+          </div>
+          <div style={labels_strip_style}>
+            <label style={show_labels_label_style}>
+              <input type="checkbox" checked={show_labels} className="press-btn" onChange={(event) => set_show_labels(event.target.checked)}
+              style={show_labels_checkbox_style} />
+              label joints
+            </label>
+          </div>
+        </div>
       </div>
       <div style={right_panel_style}>
         <div style={inputs_panel_style}>
           <p>Controls (Measurements)</p>
           <div style={button_row_style}>
-            <button style={button_style} onClick={handle_save}>save</button>
-            <button style={button_style} onClick={handle_revert}>revert</button>
+            <button style={button_style} className="press-btn" onClick={handle_save}>save</button>
+            <button style={button_style} className="press-btn" onClick={handle_revert}>revert</button>
           </div>
           <label style={input_row_style}>
             <span style={input_label_style}>A - B</span>
@@ -456,11 +462,51 @@ const panel_style =
   flexDirection: 'column',
 };
 
+const left_column_style =
+{
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '12px',
+  width: 'calc(100vh - 40px)',
+  flexShrink: 0,
+};
+
+const controls_card_style = 
+{
+  width: '100%',
+  border: '5px inset #adadad',
+  background: '#bdbdbd',
+  borderRadius: '1px',
+  display: 'flex',
+  flexDirection: 'column',
+}
+
+const speed_strip_style =
+{
+  height: '54px',
+  borderBottom: '3px inset #adadad',
+  display:'flex',
+  alignItems: 'center',
+  gap: '10px',
+  padding: '6px 12px',
+  boxSizing: 'border-box',
+};
+
+const labels_strip_style =
+{
+  height: '30px',
+  display: 'flex',
+  alignItems: 'center',
+  padding: '5px 10px',
+  boxSizing: 'border-box',
+  height: '54px',
+  borderBottom: '3px inset #adadad',
+};
+
 const preview_canvas_style =
 {
   display: 'block',
   width: '100%',
-  // height: '100%',
   flex: 1,
 };
 
@@ -476,14 +522,14 @@ const right_panel_style =
   display: 'flex',
   flexDirection: 'column',
   gap: '16px',
-  overflowY: 'auto',
+  overflowY: 'scroll',
   minWidth: 0,
 };
 
 const inputs_panel_style =
 {
   width: '300px',
-  height: '98%',
+  //height: '98%',
   boxSizing: 'border-box',
   padding: '16px',
   border: '5px inset #818181',
@@ -540,17 +586,17 @@ const input_style =
   minWidth: 0,
 };
 
-const speed_panel_style =
-{
-  height: '54px',
-  borderTop: '3px inset #adadad',
-  background: '#bdbdbd',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '10px',
-  padding: '6px 12px',
-  boxSizing: 'border-box',
-};
+// const speed_panel_style =
+// {
+//   height: '54px',
+//   borderTop: '3px inset #adadad',
+//   background: '#bdbdbd',
+//   display: 'flex',
+//   alignItems: 'center',
+//   gap: '10px',
+//   padding: '6px 12px',
+//   boxSizing: 'border-box',
+// };
 
 const speed_label_style =
 {
@@ -572,16 +618,15 @@ const show_labels_label_style =
   alignItems: 'center',
   gap: '5px',
   color: '#333333',
-  fontSize: '12px',
+  fontSize: '18px',
   cursor: 'pointer',
-  //width: '100%',
-  width: '25%',
+  //width: '25%',
 };
 
 const show_labels_checkbox_style =
 {
-  accentColor: '#576066',
+  accentColor: '#2b2a3f',
   cursor: 'pointer',
-  width: '13px',
-  height: '13px',
+  width: '16px',
+  height: '16px',
 };

@@ -54,9 +54,10 @@ function solve_leg(theta, lengths)
 
   return { z_point, y_point, x_point, w_point, v_point, u_point, t_point, s_point };
 }
-function compute_traces(lengths)
+function compute_traces(lengths, mirror)
 {
   const foot_trace  = [];
+  const foot_trace_mirror = [];
   const steps = 120;
 
   for (let i = 0; i < steps; i++)
@@ -64,11 +65,21 @@ function compute_traces(lengths)
     const theta  = (i / steps) * Math.PI * 2;
     const points = solve_leg(theta, lengths);
     if (points) foot_trace.push(points.s_point);
+
+    if (mirror)
+    {
+      const points_mirror = solve_leg(theta + Math.PI, lengths);
+      if (points_mirror) foot_trace_mirror.push
+      ({
+         x: -points_mirror.s_point.x, 
+         y: points_mirror.s_point.y
+      })
+    }
   }
 
   const crank_radius = lengths.m;
 
-  return { foot_trace, crank_radius };
+  return { foot_trace, crank_radius, foot_trace_mirror };
 }
 
 const bar_connections = [
@@ -85,9 +96,9 @@ const bar_connections = [
   ['u_point', 's_point'],
 ];
 
-function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen, show_labels)
+function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen, show_labels, mirror, lengths, angle)
 {
-  const { foot_trace, crank_radius } = traces;
+  const { foot_trace, crank_radius, foot_trace_mirror } = traces;
   const z_screen = to_screen(points.z_point);
   const r_screen = crank_radius * to_screen._scale;
 
@@ -111,6 +122,62 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
     }
     ctx.closePath();
     ctx.stroke();
+  }
+
+  if (mirror && foot_trace_mirror.length > 1)
+  {
+    ctx.strokeStyle = 'rgba(220, 100, 120, 0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const first = to_screen(foot_trace_mirror[0]);
+    ctx.moveTo(first.x, first.y);
+    for (let i = 1; i < foot_trace_mirror.length; i++)
+    {
+      const p = to_screen(foot_trace_mirror[i]);
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  if (mirror)
+  {
+    const mirror_points = solve_leg(angle + Math.PI, lengths);
+
+    if (mirror_points)
+    {
+      const flipped = {};
+      for (const [key, point] of Object.entries(mirror_points))
+      {
+        flipped[key] = {x: -point.x, y: point.y};
+      }
+      
+      ctx.strokeStyle = '#1e291f';
+      ctx.lineWidth = 2.5;
+
+      for (const [from_key, to_key] of bar_connections)
+      {
+        const from = flipped[from_key];
+        const to = flipped[to_key];
+        if (!from || !to) continue;
+        const fs = to_screen(from);
+        const ts = to_screen(to);
+
+        ctx.beginPath();
+        ctx.moveTo(fs.x, fs.y);
+        ctx.lineTo(ts.x, ts.y);
+        ctx.stroke();
+      }
+
+      for (const key of Object.keys(flipped))
+      {
+        const sp = to_screen(flipped[key]);
+        ctx.fillStyle = '#111111';
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
 
   ctx.strokeStyle = '#1a85cc';
@@ -165,7 +232,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
   }
 }
 
-function make_transform(lengths, canvas_width, canvas_height)
+function make_transform(lengths, canvas_width, canvas_height, mirror)
 {
   let min_x = Infinity, max_x = -Infinity;
   let min_y = Infinity, max_y = -Infinity;
@@ -186,7 +253,22 @@ function make_transform(lengths, canvas_width, canvas_height)
         if (p.x > max_x) max_x = p.x;
         if (p.y < min_y) min_y = p.y;
         if (p.y > max_y) max_y = p.y;
-}
+      }
+
+      if(mirror)
+      {
+        const points_mirror = solve_leg(theta + Math.PI, lengths);
+        if (!points_mirror) continue;
+
+        for (const point of Object.values(points_mirror))
+        {
+          const p = rotate ({ x: -point.x, y: point.y}, rotation);
+          if (p.x < min_x) min_x = p.x;
+          if (p.x > max_x) max_x = p.x;
+          if (p.y < min_y) min_y = p.y;
+          if (p.y > max_y) max_y = p.y;
+        }
+      }
   }
 
   const bbox_w = max_x - min_x || 1;
@@ -219,13 +301,14 @@ function make_transform(lengths, canvas_width, canvas_height)
 }
 
 // ADD
-function PreviewCanvas({ lengths, speed, show_labels })
+function PreviewCanvas({ lengths, speed, show_labels, mirror })
 {
   const canvas_ref      = useRef(null);
   const lengths_ref     = useRef(lengths);
   const angle_ref       = useRef(0);
   const speed_ref       = useRef(speed);
   const show_labels_ref = useRef(show_labels);
+  const mirror_ref = useRef(mirror);
 
   useEffect(() => {
     speed_ref.current = speed;
@@ -238,6 +321,10 @@ function PreviewCanvas({ lengths, speed, show_labels })
   useEffect(() => {
     show_labels_ref.current = show_labels;
   }, [show_labels]);
+
+  useEffect(() => {
+    mirror_ref.current = mirror;
+  }, [mirror]);
 
   useEffect(() => {
     const canvas = canvas_ref.current;
@@ -279,9 +366,9 @@ function PreviewCanvas({ lengths, speed, show_labels })
 
         if (points)
         {
-          const to_screen = make_transform(current_lengths, width, height);
-          const traces    = compute_traces(current_lengths);
-          draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current);
+          const to_screen = make_transform(current_lengths, width, height, mirror_ref.current);
+          const traces    = compute_traces(current_lengths, mirror_ref.current);
+          draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current, mirror_ref.current, current_lengths, angle_ref.current);
         }
       }
 
@@ -317,6 +404,7 @@ export default function App()
   const [lengths, set_lengths] = useState(create_default_lengths);
   const [speed, set_speed] = useState(1.2);
   const [show_labels, set_show_labels] = useState(false);
+  const [mirror, set_mirror] = useState(false);
 
   function handle_revert()
   {
@@ -348,7 +436,7 @@ export default function App()
     <div style={page_style}>
       <div style={left_column_style}>
         <div style={panel_style}>
-          <PreviewCanvas lengths={lengths} speed={speed} show_labels={show_labels} />
+          <PreviewCanvas mirror={mirror} lengths={lengths} speed={speed} show_labels={show_labels} />
         </div>
         <div style={controls_card_style}>
           <div style={speed_strip_style}>
@@ -365,6 +453,7 @@ export default function App()
             style={slide_bar_styles}
             />
           </div>
+
           <div style={labels_strip_style}>
             <label style={show_labels_label_style}>
               <input type="checkbox" checked={show_labels} className="press-btn" onChange={(event) => set_show_labels(event.target.checked)}
@@ -372,6 +461,15 @@ export default function App()
               label joints
             </label>
           </div>
+
+          <div style={labels_strip_style}>
+            <label style={show_labels_label_style}>
+              <input type="checkbox" checked={mirror} className="press-btn" onChange={(event) => set_mirror(event.target.checked)}
+              style={show_labels_checkbox_style} />
+              mirror leg
+            </label>
+          </div>
+
         </div>
       </div>
       <div style={right_panel_style}>

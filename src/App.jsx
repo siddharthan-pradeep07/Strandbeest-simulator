@@ -78,32 +78,46 @@ function solve_leg(theta, lengths)
   return { z_point, y_point, x_point, w_point, v_point, u_point, t_point, s_point };
 }
 
+// function solve_leg_mirror(theta, lengths)
+// {
+//   const z_point = { x: 2 * lengths.a, y: 0 };
+//   const y_point = { x: lengths.a, y: lengths.l };
+
+//   const x_point = {
+//     x: z_point.x + lengths.m * Math.cos(theta),
+//     y: z_point.y + lengths.m * Math.sin(theta),
+//   };
+
+//   const w_point = inter_mirror(x_point, lengths.j, y_point, lengths.b);
+//   if (!w_point) return null;
+
+//   const v_point = inter_mirror(w_point, lengths.e, y_point, lengths.d);
+//   if (!v_point) return null;
+
+//   const u_point = inter_mirror(y_point, lengths.c, x_point, lengths.k);
+//   if (!u_point) return null;
+
+//   const t_point = inter_mirror(v_point, lengths.f, u_point, lengths.g);
+//   if (!t_point) return null;
+
+//   const s_point = inter_mirror(t_point, lengths.h, u_point, lengths.i);
+//   if (!s_point) return null;
+
+//   return { z_point, y_point, x_point, w_point, v_point, u_point, t_point, s_point };
+// }
+
 function solve_leg_mirror(theta, lengths)
 {
-  const z_point = { x: 0, y: 0 };
-  const y_point = { x: lengths.a, y: lengths.l };
+  const raw = solve_leg(Math.PI - theta, lengths);
+  if (!raw) return null;
 
-  const x_point = {
-    x: lengths.m * Math.cos(theta),
-    y: lengths.m * Math.sin(theta),
-  };
-
-  const w_point = inter_mirror(x_point, lengths.j, y_point, lengths.b);
-  if (!w_point) return null;
-
-  const v_point = inter_mirror(w_point, lengths.e, y_point, lengths.d);
-  if (!v_point) return null;
-
-  const u_point = inter_mirror(y_point, lengths.c, x_point, lengths.k);
-  if (!u_point) return null;
-
-  const t_point = inter_mirror(v_point, lengths.f, u_point, lengths.g);
-  if (!t_point) return null;
-
-  const s_point = inter_mirror(t_point, lengths.h, u_point, lengths.i);
-  if (!s_point) return null;
-
-  return { z_point, y_point, x_point, w_point, v_point, u_point, t_point, s_point };
+  const flipped = {};
+  const mirror_axis = raw.y
+  for (const [key, point] of Object.entries(raw))
+  {
+    flipped[key] = { x: -point.x, y: point.y };
+  }
+  return flipped;
 }
 
 function compute_traces(lengths, mirror)
@@ -331,7 +345,7 @@ function make_transform(lengths, canvas_width, canvas_height)
 }
 
 // ADD
-function PreviewCanvas({ lengths, speed, show_labels, mirror })
+function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing })
 {
   const canvas_ref      = useRef(null);
   const lengths_ref     = useRef(lengths);
@@ -339,6 +353,11 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror })
   const speed_ref       = useRef(speed);
   const show_labels_ref = useRef(show_labels);
   const mirror_ref = useRef(mirror);
+  const is_playing_ref = useRef(is_playing);
+
+  useEffect(() => {
+    is_playing_ref.current = is_playing;
+  }, [is_playing]);
 
   useEffect(() => {
     speed_ref.current = speed;
@@ -390,8 +409,10 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror })
 
       if (current_lengths)
       {
+        if (is_playing_ref.current)
+        {
         angle_ref.current -= dt * speed_ref.current;
-
+        }
         const points = solve_leg(angle_ref.current, current_lengths);
 
         if (points)
@@ -435,6 +456,7 @@ export default function App()
   const [speed, set_speed] = useState(1.2);
   const [show_labels, set_show_labels] = useState(false);
   const [mirror, set_mirror] = useState(false);
+  const [is_playing, set_is_playing] = useState(true);
 
   function handle_revert()
   {
@@ -466,7 +488,7 @@ export default function App()
     <div style={page_style}>
       <div style={left_column_style}>
         <div style={panel_style}>
-          <PreviewCanvas mirror={mirror} lengths={lengths} speed={speed} show_labels={show_labels} />
+          <PreviewCanvas mirror={mirror} lengths={lengths} is_playing={is_playing}speed={speed} show_labels={show_labels} />
         </div>
         <div style={controls_card_style}>
           <div style={speed_strip_style}>
@@ -505,6 +527,7 @@ export default function App()
       <div style={right_panel_style}>
         <div style={inputs_panel_style}>
           <p>Controls (Measurements)</p>
+          <button className ="press-btn" onClick ={() => set_is_playing((prev) => !prev)}>play \ pause</button>
           <div style={button_row_style}>
             <button style={button_style} className="press-btn" onClick={handle_save}>save</button>
             <button style={button_style} className="press-btn" onClick={handle_revert}>revert</button>

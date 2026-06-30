@@ -527,7 +527,7 @@ export default function App()
       <div style={right_panel_style}>
         <div style={inputs_panel_style}>
           <p>Controls (Measurements)</p>
-          <button className ="press-btn" onClick ={() => set_is_playing((prev) => !prev)}>play \ pause</button>
+          <button style= {play_and_pause_bottun_style} className ="press-btn" onClick ={() => set_is_playing((prev) => !prev)}>play \ pause</button>
           <div style={button_row_style}>
             <button style={button_style} className="press-btn" onClick={handle_save}>save</button>
             <button style={button_style} className="press-btn" onClick={handle_revert}>revert</button>
@@ -710,6 +710,18 @@ const button_style =
   fontSize: '12px',
   cursor: 'pointer',
 };
+
+const play_and_pause_bottun_style =
+{
+  width: '100%',
+  padding: '8px 10px',
+  border: '3px outset #818181', // should be border: '3px inset #818181'
+  background: '#383838',
+  borderRadius: '1px',
+  color: '#dddddd',
+  fontSize: '12px',
+  cursor: 'pointer',
+}
 
 const input_row_style =
 {

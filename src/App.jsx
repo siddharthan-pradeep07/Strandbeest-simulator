@@ -537,22 +537,12 @@ export default function App()
 
         </div>
       </div>
+
       <div style={right_panel_style}>
-        <div style={leg_count_panel_style}>
-          <span style ={input_label_style}>number of legs:</span>
-          <select
-            style = {leg_count_select_style}
-            value = {leg_count}
-            onChange={(event) => set_leg_count(Number(event.target.value))}>
-              <option value={1}>1</option>
-              <option value={2}>2</option>
-              <option value={3}>3</option>
-              <option value={4}>4</option>
-            </select>
-        </div>
         <div style={inputs_panel_style}>
           <p>Controls (Measurements)</p>
-          <button style= {play_and_pause_bottun_style} className ="press-btn" onClick ={() => set_is_playing((prev) => !prev)}>play \ pause</button>
+          {/* <button style= {play_and_pause_bottun_style} className ="press-btn" onClick ={() => set_is_playing((prev) => !prev)}>play \ pause</button> */}
+
           <div style={button_row_style}>
             <button style={button_style} className="press-btn" onClick={handle_save}>save</button>
             <button style={button_style} className="press-btn" onClick={handle_revert}>revert</button>
@@ -609,6 +599,23 @@ export default function App()
             <span style={input_label_style}>A - C</span>
             <input style={input_style} defaultValue={holy_numbers[12]} ref={(el) => { input_refs.current[12] = el; }} />
           </label>
+        </div>
+        <div style={top_row_style}>
+          <div style={paly_pause_panel_style}>
+            <button style={play_and_pause_bottun_style} className="press-btn" onClick={() => set_is_playing((prev) => !prev)}>play / pause</button>
+          </div>
+          <div style={leg_count_panel_style}>
+            <span style={input_label_style}>number of legs</span>
+            <select
+              style={leg_count_select_style}
+              value={leg_count}
+              onChange={(event) => set_leg_count(Number(event.target.value))}>
+                <option value={1}>1</option>
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+              </select>
+          </div>
         </div>
       </div>
     </div>
@@ -696,10 +703,11 @@ const right_panel_style =
   background: '#bdbdbd',
   borderRadius: '1px',
   display: 'flex',
-  flexDirection: 'column',
+  flexDirection: 'row',
   gap: '16px',
   overflowY: 'scroll',
   minWidth: 0,
+  alignItems: 'flex-start',
 };
 
 const inputs_panel_style =
@@ -757,7 +765,7 @@ const input_row_style =
 
 const input_label_style =
 {
-  width: '48px',
+  width: '100px',
   color: '#d8d8d8',
   fontSize: '13px',
 };
@@ -823,20 +831,39 @@ const leg_count_panel_style =
 {
   display: 'flex',
   alignItems: 'center',
-  gap: '10px',
-  padding: '16px',
-  width: '300px',
+  gap: '70px',
+  padding: '10px',
+  width: '269px',
   border: '5px inset #818181',
   background: '#383838',
   borderRadius: '1px',
-}
+};
 
 const leg_count_select_style =
 {
   cursor: 'pointer',
   fontSize: '14px',
+  width: '100px',
   padding: '8px 10px',
   border: '3px inset #383838',
   background: '#111111',
   color: '#a5a8ad',
+};
+
+const paly_pause_panel_style =
+{
+  width: '300px',
+  padding: '10px',
+  border: '5px inset #818181',
+  background: '#383838',
+  borderRadius: '1px',
+  boxSizing: 'border-box',
+}
+
+const top_row_style =
+{
+  display: 'flex',
+  gap: '16px',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
 }

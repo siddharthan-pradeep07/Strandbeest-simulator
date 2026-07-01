@@ -112,74 +112,74 @@ function solve_leg(theta, lengths)
 
 //-----------------------------------------------------------------------------------------
 
-function solve_leg_mirror(theta, lengths)
-{
-  const raw = solve_leg(Math.PI - theta, lengths);
-  if (!raw) return null;
+// function solve_leg_mirror(theta, lengths)
+// {
+//   const raw = solve_leg(Math.PI - theta, lengths);
+//   if (!raw) return null;
 
-  const flipped = {};
+//   const flipped = {};
 
-  for (const [key, point] of Object.entries(raw))
-  {
-    flipped[key] = {x: -point.x, y: point.y,};
-  }
-  flipped.y_point =
-  {
-    x: flipped.y_point.x,
-    y: flipped.y_point.y + mirror_b_y_offset,
-  };
+//   for (const [key, point] of Object.entries(raw))
+//   {
+//     flipped[key] = {x: -point.x, y: point.y,};
+//   }
+//   flipped.y_point =
+//   {
+//     x: flipped.y_point.x,
+//     y: flipped.y_point.y + mirror_b_y_offset,
+//   };
 
-  return flipped;
-}
+//   return flipped;
+// }
 
 //-----------------------------------------------------------------------------------------
 
-// function solve_leg_mirror(theta, lengths)
-// {
-//   const z_point =
-//   {
-//     x: 0,
-//     y: 0,
-//   };
+function solve_leg_mirror(theta, lengths)
+{
+  const z_point =
+  {
+    x: 0,
+    y: 0,
+  };
 
-//   const y_point =
-//   {
-//     x: lengths.a,
-//     y: lengths.l,
-//   };
+  const y_point =
+  {
+    x: lengths.a,
+    y: lengths.l,
+  };
 
-//   const x_point =
-//   {
-//     x: lengths.m * Math.cos(theta),
-//     y: lengths.m * Math.sin(theta),
-//   };
+  const x_point =
+  {
+    x: lengths.m * Math.cos(theta),
+    y: lengths.m * Math.sin(theta),
+  };
 
-//   const w_point = inter_mirror(x_point, lengths.j, y_point, lengths.b);
-//   if (!w_point) return null;
+  const w_point = inter_mirror(x_point, lengths.j, y_point, lengths.b);
+  if (!w_point) return null;
 
-//   const v_point = inter_mirror(w_point, lengths.e, y_point, lengths.d);
-//   if (!v_point) return null;
+  const v_point = inter_mirror(w_point, lengths.e, y_point, lengths.d);
+  if (!v_point) return null;
 
-//   const u_point = inter_mirror(y_point, lengths.c, x_point, lengths.k);
-//   if (!u_point) return null;
+  const u_point = inter_mirror(y_point, lengths.c, x_point, lengths.k);
+  if (!u_point) return null;
 
-//   const t_point = inter_mirror(v_point, lengths.f, u_point, lengths.g);
-//   if (!t_point) return null;
+  const t_point = inter_mirror(v_point, lengths.f, u_point, lengths.g);
+  if (!t_point) return null;
 
-//   const s_point = inter_mirror(t_point, lengths.h, u_point, lengths.i);
-//   if (!s_point) return null;
+  const s_point = inter_mirror(t_point, lengths.h, u_point, lengths.i);
+  if (!s_point) return null;
 
-//   return {
-//     z_point,
-//     y_point,
-//     x_point,
-//     w_point,
-//     v_point,
-//     u_point,
-//     t_point,
-//     s_point,
-//   };
-// }
+  return {
+    z_point,
+    y_point,
+    x_point,
+    w_point,
+    v_point,
+    u_point,
+    t_point,
+    s_point,
+  };
+}
 
 //-----------------------------------------------------------------------------------------
 
@@ -224,7 +224,7 @@ const bar_connections = [
   ['u_point', 's_point'],
 ];
 
-function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen, show_labels, mirror, lengths, angle)
+function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen, show_labels, mirror, lengths, angle, color ='#1a85cc')
 {
   const { foot_trace, crank_radius, foot_trace_mirror } = traces;
   const z_screen = to_screen(points.z_point);
@@ -259,6 +259,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
     ctx.beginPath();
     const first = to_screen(foot_trace_mirror[0]);
     ctx.moveTo(first.x, first.y);
+
     for (let i = 1; i < foot_trace_mirror.length; i++)
     {
       const p = to_screen(foot_trace_mirror[i]);
@@ -274,7 +275,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
 
     if (mirror_points)
     {   
-      ctx.strokeStyle = '#1e291f';
+      ctx.strokeStyle = color;
       ctx.lineWidth = 2.5;
 
       for (const [from_key, to_key] of bar_connections)
@@ -302,7 +303,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
     }
   }
 
-  ctx.strokeStyle = '#1a85cc';
+  ctx.strokeStyle = color;
   ctx.lineWidth = 2.5;
 
   for (const [from_key, to_key] of bar_connections)
@@ -408,7 +409,7 @@ function make_transform(lengths, canvas_width, canvas_height)
 }
 
 // ADD
-function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_count })
+function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_count, leg_colors })
 {
   const canvas_ref      = useRef(null);
   const lengths_ref     = useRef(lengths);
@@ -418,10 +419,15 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_co
   const mirror_ref = useRef(mirror);
   const is_playing_ref = useRef(is_playing);
   const leg_count_ref = useRef(leg_count);
+  const leg_colors_ref = useRef(leg_colors);
 
   useEffect(() => {
     is_playing_ref.current = is_playing;
   }, [is_playing]);
+
+  useEffect(() => {
+    leg_colors_ref.current = leg_colors;
+  }, [leg_colors]);
 
   useEffect(() => {
     leg_count_ref.current = leg_count;
@@ -491,9 +497,10 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_co
           const phase  = (Math.PI * 2 / count) * i;
           const theta  = angle_ref.current + phase;
           const points = solve_leg(theta, current_lengths);
+          const color  = leg_colors_ref.current[i] ?? '#1a85cc';
           if (points)
           {
-            draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current && i === 0, mirror_ref.current, current_lengths, theta);
+            draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current && i === 0, mirror_ref.current, current_lengths, theta, color);
           }
         }
      }
@@ -533,6 +540,7 @@ export default function App()
   const [mirror, set_mirror] = useState(false);
   const [is_playing, set_is_playing] = useState(true);
   const [leg_count, set_leg_count] = useState(1);
+  const [leg_colors, set_leg_colors] = useState(['#1a85cc', '#8bd678', '#2f7062', '#8659a3']);
 
   function handle_revert()
   {
@@ -564,7 +572,7 @@ export default function App()
     <div style={page_style}>
       <div style={left_column_style}>
         <div style={panel_style}>
-          <PreviewCanvas mirror={mirror} lengths={lengths} is_playing={is_playing} leg_count={leg_count} speed={speed} show_labels={show_labels} />
+          <PreviewCanvas mirror={mirror} lengths={lengths} is_playing={is_playing} leg_colors={leg_colors} leg_count={leg_count} speed={speed} show_labels={show_labels} />
         </div>
         <div style={controls_card_style}>
           <div style={speed_strip_style}>
@@ -581,23 +589,6 @@ export default function App()
             style={slide_bar_styles}
             />
           </div>
-
-          <div style={labels_strip_style}>
-            <label style={show_labels_label_style}>
-              <input type="checkbox" checked={show_labels} className="press-btn" onChange={(event) => set_show_labels(event.target.checked)}
-              style={show_labels_checkbox_style} />
-              label joints
-            </label>
-          </div>
-
-          <div style={labels_strip_style}>
-            <label style={show_labels_label_style}>
-              <input type="checkbox" checked={mirror} className="press-btn" onChange={(event) => set_mirror(event.target.checked)}
-              style={show_labels_checkbox_style} />
-              mirror leg
-            </label>
-          </div>
-
         </div>
       </div>
 
@@ -667,6 +658,7 @@ export default function App()
           <div style={paly_pause_panel_style}>
             <button style={play_and_pause_bottun_style} className="press-btn" onClick={() => set_is_playing((prev) => !prev)}>play / pause</button>
           </div>
+
           <div style={leg_count_panel_style}>
             <span style={input_label_style}>number of legs</span>
             <select
@@ -678,6 +670,37 @@ export default function App()
                 <option value={3}>3</option>
                 <option value={4}>4</option>
               </select>
+          </div>
+          {Array.from({ length: leg_count }, (_, i) => (
+            <div key={i} style={leg_color_row_style}>
+              <span style={leg_color_label_style}>leg: {i + 1}</span>
+              <input
+                type="color"
+                value = {leg_colors[i]}
+                onChange={(event) => {
+                  const new_colors = [...leg_colors];
+                  new_colors[i] = event.target.value;
+                  set_leg_colors(new_colors);
+                }}
+                style={leg_color_input_style}
+              />
+            </div>
+          ))}
+        </div>
+        <div style={top_row_style}>
+          <div style={labels_strip_style}>
+            <label style={show_labels_label_style}>
+              <input type="checkbox" checked={mirror} className="press-btn" onChange={(event) => set_mirror(event.target.checked)}
+              style={show_labels_checkbox_style} />
+              mirror leg
+            </label>
+          </div>
+          <div style={labels_strip_style}>
+            <label style={show_labels_label_style}>
+              <input type="checkbox" checked={show_labels} className="press-btn" onChange={(event) => set_show_labels(event.target.checked)}
+              style={show_labels_checkbox_style} />
+              label joints
+            </label>
           </div>
         </div>
       </div>
@@ -746,7 +769,7 @@ const labels_strip_style =
   padding: '5px 10px',
   boxSizing: 'border-box',
   height: '54px',
-  borderBottom: '3px inset #adadad',
+  border: '3px inset #494949',
 };
 
 const preview_canvas_style =
@@ -921,12 +944,43 @@ const paly_pause_panel_style =
   background: '#383838',
   borderRadius: '1px',
   boxSizing: 'border-box',
-}
+};
 
 const top_row_style =
 {
   display: 'flex',
-  gap: '16px',
+  gap: '10px',
   flexDirection: 'column',
   alignItems: 'flex-start',
-}
+};
+
+const leg_color_row_style =
+{
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  paddingTop: '1px',
+  width: '100%',
+  border: '3px inset #818181',
+  background: '#383838',
+};
+
+const leg_color_label_style =
+{
+  color: '#ececec',
+  fontSize: '15px',
+  flex: 4, 
+  paddingLeft: '10px',
+  paddingBottom: '5px',
+};
+
+const leg_color_input_style =
+{
+  width: '70px',
+  height: '30px',
+  border: '2px inset #383838',
+  background: '#111111',
+  borderRadius: '1px',
+  cursor: 'pointer',
+  padding: '1px 1px',
+};

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 
 const holy_numbers = [38.0, 41.5, 39.3, 40.1, 55.8, 39.4, 36.7, 65.7, 49.0, 50.0, 61.9, 7.8, 15.0];
 const length_keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'];
+//const mirror_b_offset = -30.0;
+const mirror_b_y_offset = -20;
 
 function inter(p1, l1, p2, l2)
 {
@@ -78,6 +80,8 @@ function solve_leg(theta, lengths)
   return { z_point, y_point, x_point, w_point, v_point, u_point, t_point, s_point };
 }
 
+//--------------------------------------------------------------------------------
+
 // function solve_leg_mirror(theta, lengths)
 // {
 //   const z_point = { x: 2 * lengths.a, y: 0 };
@@ -106,19 +110,78 @@ function solve_leg(theta, lengths)
 //   return { z_point, y_point, x_point, w_point, v_point, u_point, t_point, s_point };
 // }
 
+//-----------------------------------------------------------------------------------------
+
 function solve_leg_mirror(theta, lengths)
 {
   const raw = solve_leg(Math.PI - theta, lengths);
   if (!raw) return null;
 
   const flipped = {};
-  const mirror_axis = raw.y
+
   for (const [key, point] of Object.entries(raw))
   {
-    flipped[key] = { x: -point.x, y: point.y };
+    flipped[key] = {x: -point.x, y: point.y,};
   }
+  flipped.y_point =
+  {
+    x: flipped.y_point.x,
+    y: flipped.y_point.y + mirror_b_y_offset,
+  };
+
   return flipped;
 }
+
+//-----------------------------------------------------------------------------------------
+
+// function solve_leg_mirror(theta, lengths)
+// {
+//   const z_point =
+//   {
+//     x: 0,
+//     y: 0,
+//   };
+
+//   const y_point =
+//   {
+//     x: lengths.a,
+//     y: lengths.l,
+//   };
+
+//   const x_point =
+//   {
+//     x: lengths.m * Math.cos(theta),
+//     y: lengths.m * Math.sin(theta),
+//   };
+
+//   const w_point = inter_mirror(x_point, lengths.j, y_point, lengths.b);
+//   if (!w_point) return null;
+
+//   const v_point = inter_mirror(w_point, lengths.e, y_point, lengths.d);
+//   if (!v_point) return null;
+
+//   const u_point = inter_mirror(y_point, lengths.c, x_point, lengths.k);
+//   if (!u_point) return null;
+
+//   const t_point = inter_mirror(v_point, lengths.f, u_point, lengths.g);
+//   if (!t_point) return null;
+
+//   const s_point = inter_mirror(t_point, lengths.h, u_point, lengths.i);
+//   if (!s_point) return null;
+
+//   return {
+//     z_point,
+//     y_point,
+//     x_point,
+//     w_point,
+//     v_point,
+//     u_point,
+//     t_point,
+//     s_point,
+//   };
+// }
+
+//-----------------------------------------------------------------------------------------
 
 function compute_traces(lengths, mirror)
 {

@@ -345,7 +345,7 @@ function make_transform(lengths, canvas_width, canvas_height)
 }
 
 // ADD
-function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing })
+function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_count })
 {
   const canvas_ref      = useRef(null);
   const lengths_ref     = useRef(lengths);
@@ -354,10 +354,15 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing })
   const show_labels_ref = useRef(show_labels);
   const mirror_ref = useRef(mirror);
   const is_playing_ref = useRef(is_playing);
+  const leg_count_ref = useRef(leg_count);
 
   useEffect(() => {
     is_playing_ref.current = is_playing;
   }, [is_playing]);
+
+  useEffect(() => {
+    leg_count_ref.current = leg_count;
+  }, [leg_count]);
 
   useEffect(() => {
     speed_ref.current = speed;
@@ -413,15 +418,22 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing })
         {
         angle_ref.current -= dt * speed_ref.current;
         }
-        const points = solve_leg(angle_ref.current, current_lengths);
 
-        if (points)
+        const to_screen = make_transform(current_lengths, width, height);
+        const traces    = compute_traces(current_lengths, mirror_ref.current);
+        const count = leg_count_ref.current;
+
+        for (let i = 0; i < count; i++)
         {
-          const to_screen = make_transform(current_lengths, width, height);
-          const traces    = compute_traces(current_lengths, mirror_ref.current);
-          draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current, mirror_ref.current, current_lengths, angle_ref.current);
+          const phase  = (Math.PI * 2 / count) * i;
+          const theta  = angle_ref.current + phase;
+          const points = solve_leg(theta, current_lengths);
+          if (points)
+          {
+            draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current && i === 0, mirror_ref.current, current_lengths, theta);
+          }
         }
-      }
+     }
 
       animation_id = requestAnimationFrame(frame);
     }
@@ -457,6 +469,7 @@ export default function App()
   const [show_labels, set_show_labels] = useState(false);
   const [mirror, set_mirror] = useState(false);
   const [is_playing, set_is_playing] = useState(true);
+  const [leg_count, set_leg_count] = useState(1);
 
   function handle_revert()
   {
@@ -488,7 +501,7 @@ export default function App()
     <div style={page_style}>
       <div style={left_column_style}>
         <div style={panel_style}>
-          <PreviewCanvas mirror={mirror} lengths={lengths} is_playing={is_playing}speed={speed} show_labels={show_labels} />
+          <PreviewCanvas mirror={mirror} lengths={lengths} is_playing={is_playing} leg_count={leg_count} speed={speed} show_labels={show_labels} />
         </div>
         <div style={controls_card_style}>
           <div style={speed_strip_style}>
@@ -525,6 +538,18 @@ export default function App()
         </div>
       </div>
       <div style={right_panel_style}>
+        <div style={leg_count_panel_style}>
+          <span style ={input_label_style}>number of legs:</span>
+          <select
+            style = {leg_count_select_style}
+            value = {leg_count}
+            onChange={(event) => set_leg_count(Number(event.target.value))}>
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+            </select>
+        </div>
         <div style={inputs_panel_style}>
           <p>Controls (Measurements)</p>
           <button style= {play_and_pause_bottun_style} className ="press-btn" onClick ={() => set_is_playing((prev) => !prev)}>play \ pause</button>
@@ -793,3 +818,25 @@ const show_labels_checkbox_style =
   width: '16px',
   height: '16px',
 };
+
+const leg_count_panel_style =
+{
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+  padding: '16px',
+  width: '300px',
+  border: '5px inset #818181',
+  background: '#383838',
+  borderRadius: '1px',
+}
+
+const leg_count_select_style =
+{
+  cursor: 'pointer',
+  fontSize: '14px',
+  padding: '8px 10px',
+  border: '3px inset #383838',
+  background: '#111111',
+  color: '#a5a8ad',
+}

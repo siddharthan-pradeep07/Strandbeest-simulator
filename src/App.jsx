@@ -300,6 +300,30 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
         ctx.arc(sp.x, sp.y, 4, 0, Math.PI * 2);
         ctx.fill();
       }
+
+      if (show_labels)
+      {
+        ctx.fillStyle = '#10174d';
+        ctx.font = '20px monospace';
+        ctx.textAlign = 'left';
+
+        const label_map = 
+        {
+          z_point: 'a',
+          y_point: 'b',
+          x_point: 'c',
+          w_point: 'd',
+          v_point: 'e',
+          u_point: 'f',
+          t_point: 'g',
+          s_point: 'h',
+        };
+        for (const [key, label] of Object.entries(label_map))
+        {
+          const sp = to_screen(mirror_points[key]);
+          ctx.fillText(label, sp.x, sp.y - 9)
+        }
+      }
     }
   }
 
@@ -500,7 +524,7 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_co
           const color  = leg_colors_ref.current[i] ?? '#1a85cc';
           if (points)
           {
-            draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current && i === 0, mirror_ref.current, current_lengths, theta, color);
+            draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current, mirror_ref.current, current_lengths, theta, color);
           }
         }
      }

@@ -433,7 +433,7 @@ function make_transform(lengths, canvas_width, canvas_height)
 }
 
 // ADD
-function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_count, leg_colors })
+function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_count, leg_colors, on_ground_data })
 {
   const canvas_ref      = useRef(null);
   const lengths_ref     = useRef(lengths);
@@ -444,6 +444,11 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_co
   const is_playing_ref = useRef(is_playing);
   const leg_count_ref = useRef(leg_count);
   const leg_colors_ref = useRef(leg_colors);
+  const on_ground_data_ref = useRef(on_ground_data);
+
+  useEffect(() => {
+    on_ground_data_ref.current = on_ground_data;
+  }, [lengths]);
 
   useEffect(() => {
     is_playing_ref.current = is_playing;
@@ -527,7 +532,32 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_co
             draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current, mirror_ref.current, current_lengths, theta, color);
           }
         }
-     }
+
+        const {foot_trace}=traces;
+        if (foot_trace.length > 1 && on_ground_data_ref.current)
+        {
+          const max_y    = Math.max(...foot_trace.map(p => p.y));
+          const ground_y = max_y;
+          const threshold = (Math.max(...foot_trace.map(p => p.y)) - Math.min(...foot_trace.map(p => p.y))) * 0.05;
+          const ground_pts = foot_trace.filter(p => Math.abs(p.y - ground_y) < threshold);
+
+          let angle_deg = null;
+          let distance = null;
+
+          if (ground_pts.length >= 2)
+          {
+            const min_x  = Math.min(...ground_pts.map(p => p.x));
+            const max_x  = Math.max(...ground_pts.map(p => p.x));
+            const left   = ground_pts.find(p => p.x === min_x) ?? ground_pts[0];
+            const right  = ground_pts.find(p => p.x === max_x) ?? ground_pts[ground_pts.length - 1];
+            const dx     = right.x - left.x;
+            const dy     = right.y - left.y;
+            angle_deg    = Math.round(Math.atan2(dy, dx) * (180 / Math.PI) + 180);
+            distance     = Math.round(Math.hypot(dx, dy) * 10) / 10;
+          }
+          on_ground_data_ref.current({ angle: angle_deg, distance: distance });
+        }
+      }
 
       animation_id = requestAnimationFrame(frame);
     }
@@ -565,6 +595,7 @@ export default function App()
   const [is_playing, set_is_playing] = useState(true);
   const [leg_count, set_leg_count] = useState(1);
   const [leg_colors, set_leg_colors] = useState(['#1a85cc', '#8bd678', '#2f7062', '#8659a3']);
+  const [ground_data, set_ground_data] = useState({angle: null, distance: null});
 
   function handle_revert()
   {
@@ -596,7 +627,7 @@ export default function App()
     <div style={page_style}>
       <div style={left_column_style}>
         <div style={panel_style}>
-          <PreviewCanvas mirror={mirror} lengths={lengths} is_playing={is_playing} leg_colors={leg_colors} leg_count={leg_count} speed={speed} show_labels={show_labels} />
+          <PreviewCanvas mirror={mirror} lengths={lengths} is_playing={is_playing} leg_colors={leg_colors} leg_count={leg_count} speed={speed} show_labels={show_labels} on_ground_data={set_ground_data} />
         </div>
         <div style={controls_card_style}>
           <div style={speed_strip_style}>
@@ -679,6 +710,16 @@ export default function App()
           </label>
         </div>
         <div style={top_row_style}>
+          <div style={data_panel_style}>
+            <div style={data_row_style}>
+              <span style={data_label_style}>ground angle</span>
+              <span style={data_value_style}>{ground_data.angle !== null ? `${ground_data.angle}°` : '—'}</span>
+            </div>
+            <div style={data_row_style}>
+              <span style={data_label_style}>ground distance</span>
+              <span style={data_value_style}>{ground_data.distance !== null ? `${ground_data.distance}` : '—'}</span>
+            </div>
+          </div>
           <div style={paly_pause_panel_style}>
             <button style={play_and_pause_bottun_style} className="press-btn" onClick={() => set_is_playing((prev) => !prev)}>play / pause</button>
           </div>
@@ -1008,3 +1049,32 @@ const leg_color_input_style =
   cursor: 'pointer',
   padding: '1px 1px',
 };
+
+const data_panel_style =
+{
+  width: '300px',
+  padding: '10px',
+  border: '5px inset #818181',
+  background: '#383838',
+  borderRadius: '1px',
+  boxSizing: 'border-box',
+};
+
+const data_row_style =
+{
+  display: 'flex',
+  justifyContent: 'space-between',
+  paddingBottom: '6px',
+};
+
+const data_label_style =
+{
+  color: '#ececec',
+  fontSize: '15px',
+};
+
+const data_value_style =
+{
+  color: '#ececec',
+  fontSize: '15px',
+};  

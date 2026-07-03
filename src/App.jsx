@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 
 const holy_numbers = [38.0, 41.5, 39.3, 40.1, 55.8, 39.4, 36.7, 65.7, 49.0, 50.0, 61.9, 7.8, 15.0];
 const length_keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'];
-//const mirror_b_offset = -30.0;
 const mirror_b_y_offset = -20;
 
 function inter(p1, l1, p2, l2)
@@ -80,60 +79,6 @@ function solve_leg(theta, lengths)
   return { z_point, y_point, x_point, w_point, v_point, u_point, t_point, s_point };
 }
 
-//--------------------------------------------------------------------------------
-
-// function solve_leg_mirror(theta, lengths)
-// {
-//   const z_point = { x: 2 * lengths.a, y: 0 };
-//   const y_point = { x: lengths.a, y: lengths.l };
-
-//   const x_point = {
-//     x: z_point.x + lengths.m * Math.cos(theta),
-//     y: z_point.y + lengths.m * Math.sin(theta),
-//   };
-
-//   const w_point = inter_mirror(x_point, lengths.j, y_point, lengths.b);
-//   if (!w_point) return null;
-
-//   const v_point = inter_mirror(w_point, lengths.e, y_point, lengths.d);
-//   if (!v_point) return null;
-
-//   const u_point = inter_mirror(y_point, lengths.c, x_point, lengths.k);
-//   if (!u_point) return null;
-
-//   const t_point = inter_mirror(v_point, lengths.f, u_point, lengths.g);
-//   if (!t_point) return null;
-
-//   const s_point = inter_mirror(t_point, lengths.h, u_point, lengths.i);
-//   if (!s_point) return null;
-
-//   return { z_point, y_point, x_point, w_point, v_point, u_point, t_point, s_point };
-// }
-
-//-----------------------------------------------------------------------------------------
-
-// function solve_leg_mirror(theta, lengths)
-// {
-//   const raw = solve_leg(Math.PI - theta, lengths);
-//   if (!raw) return null;
-
-//   const flipped = {};
-
-//   for (const [key, point] of Object.entries(raw))
-//   {
-//     flipped[key] = {x: -point.x, y: point.y,};
-//   }
-//   flipped.y_point =
-//   {
-//     x: flipped.y_point.x,
-//     y: flipped.y_point.y + mirror_b_y_offset,
-//   };
-
-//   return flipped;
-// }
-
-//-----------------------------------------------------------------------------------------
-
 function solve_leg_mirror(theta, lengths)
 {
   const z_point =
@@ -180,8 +125,6 @@ function solve_leg_mirror(theta, lengths)
     s_point,
   };
 }
-
-//-----------------------------------------------------------------------------------------
 
 function compute_traces(lengths, mirror)
 {
@@ -650,8 +593,6 @@ export default function App()
       <div style={right_panel_style}>
         <div style={inputs_panel_style}>
           <p>Controls (Measurements)</p>
-          {/* <button style= {play_and_pause_bottun_style} className ="press-btn" onClick ={() => set_is_playing((prev) => !prev)}>play \ pause</button> */}
-
           <div style={button_row_style}>
             <button style={button_style} className="press-btn" onClick={handle_save}>save</button>
             <button style={button_style} className="press-btn" onClick={handle_revert}>revert</button>
@@ -864,7 +805,6 @@ const right_panel_style =
 const inputs_panel_style =
 {
   width: '300px',
-  //height: '98%',
   boxSizing: 'border-box',
   padding: '16px',
   border: '5px inset #818181',
@@ -899,7 +839,7 @@ const play_and_pause_bottun_style =
 {
   width: '100%',
   padding: '8px 10px',
-  border: '3px outset #818181', // should be border: '3px inset #818181'
+  border: '3px outset #818181',
   background: '#383838',
   borderRadius: '1px',
   color: '#dddddd',
@@ -932,18 +872,6 @@ const input_style =
   fontSize: '14px',
   minWidth: 0,
 };
-
-// const speed_panel_style =
-// {
-//   height: '54px',
-//   borderTop: '3px inset #adadad',
-//   background: '#bdbdbd',
-//   display: 'flex',
-//   alignItems: 'center',
-//   gap: '10px',
-//   padding: '6px 12px',
-//   boxSizing: 'border-box',
-// };
 
 const speed_label_style =
 {

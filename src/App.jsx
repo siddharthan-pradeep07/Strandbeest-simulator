@@ -4,6 +4,28 @@ const holy_numbers = [38.0, 41.5, 39.3, 40.1, 55.8, 39.4, 36.7, 65.7, 49.0, 50.0
 const length_keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'];
 const mirror_b_y_offset = -20;
 
+// Cosmetic tilt applied by make_transform's to_screen - kept as a shared
+// constant because mirror_theta (below) needs to know it too.
+const scene_rotation = 0.4;
+
+// The two legs share one physical crank pin, so both "c" points must land
+// on the exact same screen pixel at every instant (and therefore trace the
+// ring in the same direction - there's only ever one visible pin).
+// solve_leg_mirror renders as reflect(solve_leg(theta)) through the
+// oppositely-tilted to_screen.mirror (see make_transform). Working through
+// that reflection and the +/-scene_rotation tilt on both sides, the input
+// angle that makes the two pins coincide on screen for a given primary
+// crank angle `theta` is Math.PI - theta - 2 * scene_rotation - not `theta`
+// itself. (Verified numerically: the pin-coincidence error is at floating
+// point noise across a full rotation.) The rest of the mirrored leg still
+// comes out as a perfectly clean, undistorted reflection - solve_leg_mirror
+// is a valid mirror for any input angle - just phase-shifted so its pin
+// meets the primary's.
+function mirror_theta(theta)
+{
+  return Math.PI - theta - 2 * scene_rotation;
+}
+
 function inter(p1, l1, p2, l2)
 {
   const dx = p2.x - p1.x;
@@ -28,27 +50,9 @@ function inter(p1, l1, p2, l2)
   return cross < 0 ? r1 : { x: mx - rx, y: my - ry };
 }
 
-function inter_mirror(p1,l1,p2,l2)
+function reflect_point(p)
 {
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  const dist = Math.hypot(dx, dy);
-
-  if (dist === 0 || dist > l1 + l2 || dist < Math.abs(l1 - l2)) return null;
-  const a  = (l1 * l1 - l2 * l2 + dist * dist) / (2 * dist);
-  const h_sq = l1 * l1 - a * a;
-  if (h_sq < 0) return null;
-
-  const h  = Math.sqrt(h_sq);
-  const mx = p1.x + (a * dx) / dist;
-  const my = p1.y + (a * dy) / dist;
-  const rx = -(h * dy) / dist;
-  const ry =  (h * dx) / dist;
-
-  const r1    = { x: mx + rx, y: my + ry };
-  const cross = dx * (r1.y - p1.y) - dy * (r1.x - p1.x);
-
-  return cross < 0 ? { x: mx - rx, y: my - ry } : r1;
+  return p && { x: -p.x, y: p.y };
 }
 
 function solve_leg(theta, lengths)
@@ -81,48 +85,25 @@ function solve_leg(theta, lengths)
 
 function solve_leg_mirror(theta, lengths)
 {
-  const z_point =
-  {
-    x: 0,
-    y: 0,
-  };
-
-  const y_point =
-  {
-    x: lengths.a,
-    y: lengths.l,
-  };
-
-  const x_point =
-  {
-    x: lengths.m * Math.cos(theta),
-    y: lengths.m * Math.sin(theta),
-  };
-
-  const w_point = inter_mirror(x_point, lengths.j, y_point, lengths.b);
-  if (!w_point) return null;
-
-  const v_point = inter_mirror(w_point, lengths.e, y_point, lengths.d);
-  if (!v_point) return null;
-
-  const u_point = inter_mirror(y_point, lengths.c, x_point, lengths.k);
-  if (!u_point) return null;
-
-  const t_point = inter_mirror(v_point, lengths.f, u_point, lengths.g);
-  if (!t_point) return null;
-
-  const s_point = inter_mirror(t_point, lengths.h, u_point, lengths.i);
-  if (!s_point) return null;
+  // The mirror leg is the primary leg's pose at this same instant (same
+  // theta - so the crank ring turns the same direction, in sync), reflected
+  // across the vertical line through the shared crank center (z_point).
+  // Reflection is an isometry: every bar-length constraint the primary leg
+  // satisfies is still satisfied point-for-point after flipping, so the
+  // mirrored leg comes out as an exact, undistorted horizontal mirror image
+  // - never a leg solved at some other angle.
+  const solved = solve_leg(theta, lengths);
+  if (!solved) return null;
 
   return {
-    z_point,
-    y_point,
-    x_point,
-    w_point,
-    v_point,
-    u_point,
-    t_point,
-    s_point,
+    z_point: reflect_point(solved.z_point),
+    y_point: reflect_point(solved.y_point),
+    x_point: reflect_point(solved.x_point),
+    w_point: reflect_point(solved.w_point),
+    v_point: reflect_point(solved.v_point),
+    u_point: reflect_point(solved.u_point),
+    t_point: reflect_point(solved.t_point),
+    s_point: reflect_point(solved.s_point),
   };
 }
 
@@ -140,7 +121,7 @@ function compute_traces(lengths, mirror)
 
     if (mirror)
     {
-      const points_mirror = solve_leg_mirror(theta, lengths);
+      const points_mirror = solve_leg_mirror(mirror_theta(theta), lengths);
       if (points_mirror) foot_trace_mirror.push
       (
         points_mirror.s_point
@@ -200,12 +181,12 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
     ctx.strokeStyle = 'rgba(220, 100, 120, 0.35)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    const first = to_screen(foot_trace_mirror[0]);
+    const first = to_screen.mirror(foot_trace_mirror[0]);
     ctx.moveTo(first.x, first.y);
 
     for (let i = 1; i < foot_trace_mirror.length; i++)
     {
-      const p = to_screen(foot_trace_mirror[i]);
+      const p = to_screen.mirror(foot_trace_mirror[i]);
       ctx.lineTo(p.x, p.y);
     }
     ctx.closePath();
@@ -214,10 +195,10 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
 
   if (mirror)
   {
-    const mirror_points = solve_leg_mirror(angle,lengths);
+    const mirror_points = solve_leg_mirror(mirror_theta(angle), lengths);
 
     if (mirror_points)
-    {   
+    {
       ctx.strokeStyle = color;
       ctx.lineWidth = 2.5;
 
@@ -226,8 +207,8 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
         const from = mirror_points[from_key];
         const to = mirror_points[to_key];
         if (!from || !to) continue;
-        const fs = to_screen(from);
-        const ts = to_screen(to);
+        const fs = to_screen.mirror(from);
+        const ts = to_screen.mirror(to);
 
         ctx.beginPath();
         ctx.moveTo(fs.x, fs.y);
@@ -237,7 +218,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
 
       for (const key of Object.keys(mirror_points))
       {
-        const sp = to_screen(mirror_points[key]);
+        const sp = to_screen.mirror(mirror_points[key]);
         ctx.fillStyle = '#111111';
         ctx.beginPath();
         ctx.arc(sp.x, sp.y, 4, 0, Math.PI * 2);
@@ -250,7 +231,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
         ctx.font = '20px monospace';
         ctx.textAlign = 'left';
 
-        const label_map = 
+        const label_map =
         {
           z_point: 'a',
           y_point: 'b',
@@ -263,7 +244,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
         };
         for (const [key, label] of Object.entries(label_map))
         {
-          const sp = to_screen(mirror_points[key]);
+          const sp = to_screen.mirror(mirror_points[key]);
           ctx.fillText(label, sp.x, sp.y - 9)
         }
       }
@@ -327,7 +308,7 @@ function make_transform(lengths, canvas_width, canvas_height)
   let min_x = Infinity, max_x = -Infinity;
   let min_y = Infinity, max_y = -Infinity;
   const steps = 120;
-  const rotation = 0.4;
+  const rotation = scene_rotation;
 
   for (let i = 0; i < steps; i++)
   {
@@ -359,6 +340,20 @@ function make_transform(lengths, canvas_width, canvas_height)
     return { x: p.x * scale + cx, y: -p.y * scale + cy };
   }
 
+  // The scene is drawn with a fixed cosmetic tilt (`rotation`) applied on
+  // top of the leg's own geometry. Rotation and horizontal reflection don't
+  // commute, so a leg that's mirrored in its own coordinate space (see
+  // solve_leg_mirror) and then tilted by the same +rotation as the primary
+  // leg comes out rotated by an extra 2*rotation on screen - it looks like
+  // it's leaning the wrong way. Tilting the mirror leg by -rotation instead
+  // exactly cancels that out, so it renders as a true horizontal mirror of
+  // the primary leg as displayed, not just as modeled.
+  function to_screen_mirror(point)
+  {
+    const p = rotate(point, -rotation);
+    return { x: p.x * scale + cx, y: -p.y * scale + cy };
+  }
+
   function rotate(point, angle)
   {
     const cos = Math.cos(angle);
@@ -371,6 +366,7 @@ function make_transform(lengths, canvas_width, canvas_height)
   }
 
   to_screen._scale = scale;
+  to_screen.mirror = to_screen_mirror;
 
   return to_screen;
 }

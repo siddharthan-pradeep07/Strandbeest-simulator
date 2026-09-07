@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 
 const holy_numbers = [38.0, 41.5, 39.3, 40.1, 55.8, 39.4, 36.7, 65.7, 49.0, 50.0, 61.9, 7.8, 15.0];
 const length_keys = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'];
-const mirror_b_y_offset = -20;
+const length_bar_labels = ['A - B', 'B - D', 'B - F', 'E - B', 'E - D', 'E - G', 'G - F', 'G - H', 'H - F', 'D - C', 'F - C', '(H) A/B', 'A - C'];
+const default_leg_colors = ['#1a85cc', '#8bd678', '#2f7062', '#8659a3'];
+const default_canvas_bg = '#e8e8e8';
+const default_line_width = 2.5;
+const settings_storage_key = 'strandbeest_settings_v1';
 
 // Cosmetic tilt applied by make_transform's to_screen - kept as a shared
 // constant because mirror_theta (below) needs to know it too.
@@ -122,10 +126,7 @@ function compute_traces(lengths, mirror)
     if (mirror)
     {
       const points_mirror = solve_leg_mirror(mirror_theta(theta), lengths);
-      if (points_mirror) foot_trace_mirror.push
-      (
-        points_mirror.s_point
-      );
+      if (points_mirror) foot_trace_mirror.push(points_mirror.s_point);
     }
   }
 
@@ -148,19 +149,22 @@ const bar_connections = [
   ['u_point', 's_point'],
 ];
 
-function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen, show_labels, mirror, lengths, angle, color ='#1a85cc')
+function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen, show_labels, mirror, lengths, angle, color = '#1a85cc', show_trace = true, show_crank_circle = true, line_width = 2.5)
 {
   const { foot_trace, crank_radius, foot_trace_mirror } = traces;
   const z_screen = to_screen(points.z_point);
   const r_screen = crank_radius * to_screen._scale;
 
-  ctx.strokeStyle = 'rgba(131, 140, 189, 0.64)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(z_screen.x, z_screen.y, r_screen, 0, Math.PI * 2);
-  ctx.stroke();
+  if (show_crank_circle)
+  {
+    ctx.strokeStyle = 'rgba(131, 140, 189, 0.64)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(z_screen.x, z_screen.y, r_screen, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
-  if (foot_trace.length > 1)
+  if (show_trace && foot_trace.length > 1)
   {
     ctx.strokeStyle = 'rgba(220, 100, 120, 0.35)';
     ctx.lineWidth = 1.5;
@@ -176,7 +180,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
     ctx.stroke();
   }
 
-  if (mirror && foot_trace_mirror.length > 1)
+  if (show_trace && mirror && foot_trace_mirror.length > 1)
   {
     ctx.strokeStyle = 'rgba(220, 100, 120, 0.35)';
     ctx.lineWidth = 1.5;
@@ -200,7 +204,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
     if (mirror_points)
     {
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = line_width;
 
       for (const [from_key, to_key] of bar_connections)
       {
@@ -252,7 +256,7 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
   }
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = line_width;
 
   for (const [from_key, to_key] of bar_connections)
   {
@@ -277,14 +281,14 @@ function draw_scene(ctx, canvas_width, canvas_height, points, traces, to_screen,
     ctx.arc(sp.x, sp.y, 4, 0, Math.PI * 2);
     ctx.fill();
   }
-   
+
   if (show_labels)
   {
     ctx.fillStyle = '#10174d';
     ctx.font = '20px monospace';
     ctx.textAlign = 'left';
 
-    const label_map = 
+    const label_map =
     {
       z_point: 'a',
       y_point: 'b',
@@ -316,7 +320,7 @@ function make_transform(lengths, canvas_width, canvas_height)
     const points = solve_leg(theta, lengths);
     if (!points) continue;
 
-    
+
     for (const point of Object.values(points))
       {
         const p = rotate(point, rotation);
@@ -371,15 +375,18 @@ function make_transform(lengths, canvas_width, canvas_height)
   return to_screen;
 }
 
-// ADD
-function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_count, leg_colors, on_ground_data })
+function PreviewCanvas({ lengths, speed, direction, show_labels, mirror, show_trace, show_crank_circle, line_width, is_playing, leg_count, leg_colors, on_ground_data })
 {
   const canvas_ref      = useRef(null);
   const lengths_ref     = useRef(lengths);
   const angle_ref       = useRef(0);
   const speed_ref       = useRef(speed);
+  const direction_ref   = useRef(direction);
   const show_labels_ref = useRef(show_labels);
   const mirror_ref = useRef(mirror);
+  const show_trace_ref = useRef(show_trace);
+  const show_crank_circle_ref = useRef(show_crank_circle);
+  const line_width_ref = useRef(line_width);
   const is_playing_ref = useRef(is_playing);
   const leg_count_ref = useRef(leg_count);
   const leg_colors_ref = useRef(leg_colors);
@@ -406,6 +413,10 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_co
   }, [speed]);
 
   useEffect(() => {
+    direction_ref.current = direction;
+  }, [direction]);
+
+  useEffect(() => {
     lengths_ref.current = lengths;
   }, [lengths]);
 
@@ -416,6 +427,18 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_co
   useEffect(() => {
     mirror_ref.current = mirror;
   }, [mirror]);
+
+  useEffect(() => {
+    show_trace_ref.current = show_trace;
+  }, [show_trace]);
+
+  useEffect(() => {
+    show_crank_circle_ref.current = show_crank_circle;
+  }, [show_crank_circle]);
+
+  useEffect(() => {
+    line_width_ref.current = line_width;
+  }, [line_width]);
 
   useEffect(() => {
     const canvas = canvas_ref.current;
@@ -453,7 +476,7 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_co
       {
         if (is_playing_ref.current)
         {
-        angle_ref.current -= dt * speed_ref.current;
+        angle_ref.current -= dt * speed_ref.current * direction_ref.current;
         }
 
         const to_screen = make_transform(current_lengths, width, height);
@@ -468,7 +491,7 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_co
           const color  = leg_colors_ref.current[i] ?? '#1a85cc';
           if (points)
           {
-            draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current, mirror_ref.current, current_lengths, theta, color);
+            draw_scene(ctx, width, height, points, traces, to_screen, show_labels_ref.current, mirror_ref.current, current_lengths, theta, color, show_trace_ref.current, show_crank_circle_ref.current, line_width_ref.current);
           }
         }
 
@@ -494,7 +517,8 @@ function PreviewCanvas({ lengths, speed, show_labels, mirror, is_playing, leg_co
             angle_deg    = Math.round(Math.atan2(dy, dx) * (180 / Math.PI) + 180);
             distance     = Math.round(Math.hypot(dx, dy) * 10) / 10;
           }
-          on_ground_data_ref.current({ angle: angle_deg, distance: distance });
+          const crank_deg = Math.round((((angle_ref.current % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) * (180 / Math.PI));
+          on_ground_data_ref.current({ angle: angle_deg, distance: distance, crank_angle: crank_deg });
         }
       }
 
@@ -524,17 +548,82 @@ function create_default_lengths()
   return result;
 }
 
+function load_saved_settings()
+{
+  try
+  {
+    const raw = localStorage.getItem(settings_storage_key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  }
+  catch
+  {
+    return null;
+  }
+}
+
+function random_length(key)
+{
+  // Keep the crank throw (m) and the small offset (l) in their own,
+  // narrower ranges - they play a very different geometric role than the
+  // main bars, and letting them roam as wide usually just produces a
+  // linkage with no valid solution at most crank angles.
+  if (key === 'l') return Math.round((Math.random() * 13 + 5) * 10) / 10;
+  if (key === 'm') return Math.round((Math.random() * 12 + 8) * 10) / 10;
+  return Math.round((Math.random() * 45 + 25) * 10) / 10;
+}
+
 export default function App()
 {
   const input_refs = useRef([]);
-  const [lengths, set_lengths] = useState(create_default_lengths);
-  const [speed, set_speed] = useState(1.2);
-  const [show_labels, set_show_labels] = useState(false);
-  const [mirror, set_mirror] = useState(false);
+  const file_input_ref = useRef(null);
+  const [saved] = useState(load_saved_settings);
+
+  const [lengths, set_lengths] = useState(() => saved?.lengths ?? create_default_lengths());
+  const [speed, set_speed] = useState(() => saved?.speed ?? 1.2);
+  const [direction, set_direction] = useState(() => (saved?.direction === -1 ? -1 : 1));
+  const [show_labels, set_show_labels] = useState(() => saved?.show_labels ?? false);
+  const [mirror, set_mirror] = useState(() => saved?.mirror ?? false);
+  const [show_trace, set_show_trace] = useState(() => saved?.show_trace ?? true);
+  const [show_crank_circle, set_show_crank_circle] = useState(() => saved?.show_crank_circle ?? true);
+  const [line_width, set_line_width] = useState(() => saved?.line_width ?? default_line_width);
+  const [canvas_bg, set_canvas_bg] = useState(() => saved?.canvas_bg ?? default_canvas_bg);
   const [is_playing, set_is_playing] = useState(true);
-  const [leg_count, set_leg_count] = useState(1);
-  const [leg_colors, set_leg_colors] = useState(['#1a85cc', '#8bd678', '#2f7062', '#8659a3']);
-  const [ground_data, set_ground_data] = useState({angle: null, distance: null});
+  const [leg_count, set_leg_count] = useState(() => saved?.leg_count ?? 1);
+  const [leg_colors, set_leg_colors] = useState(() => saved?.leg_colors ?? default_leg_colors);
+  const [ground_data, set_ground_data] = useState({ angle: null, distance: null, crank_angle: null });
+
+  // Every customization sticks across reloads - only playback (is_playing)
+  // is deliberately excluded, so the simulator always opens ready to run.
+  useEffect(() => {
+    try
+    {
+      localStorage.setItem(settings_storage_key, JSON.stringify({
+        lengths, speed, direction, show_labels, mirror, show_trace,
+        show_crank_circle, line_width, canvas_bg, leg_count, leg_colors,
+      }));
+    }
+    catch
+    {
+      // localStorage can be unavailable (private browsing, quota) - the
+      // simulator still works fine, it just won't remember settings.
+    }
+  }, [lengths, speed, direction, show_labels, mirror, show_trace, show_crank_circle, line_width, canvas_bg, leg_count, leg_colors]);
+
+  // Space bar toggles play/pause, unless the user is typing/selecting.
+  useEffect(() => {
+    function handle_key(event)
+    {
+      if (event.code !== 'Space') return;
+      const tag = event.target?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      event.preventDefault();
+      set_is_playing((prev) => !prev);
+    }
+    window.addEventListener('keydown', handle_key);
+    return () => window.removeEventListener('keydown', handle_key);
+  }, []);
 
   function handle_revert()
   {
@@ -562,92 +651,243 @@ export default function App()
     set_lengths(new_lengths);
   }
 
+  function handle_randomize()
+  {
+    for (let index = 0; index < length_keys.length; index++)
+    {
+      if (input_refs.current[index])
+      {
+        input_refs.current[index].value = random_length(length_keys[index]);
+      }
+    }
+    handle_save();
+  }
+
+  function handle_reset_all()
+  {
+    handle_revert();
+    set_lengths(create_default_lengths());
+    set_speed(1.2);
+    set_direction(1);
+    set_show_labels(false);
+    set_mirror(false);
+    set_show_trace(true);
+    set_show_crank_circle(true);
+    set_line_width(default_line_width);
+    set_canvas_bg(default_canvas_bg);
+    set_leg_count(1);
+    set_leg_colors(default_leg_colors);
+
+    try { localStorage.removeItem(settings_storage_key); } catch { /* ignore */ }
+  }
+
+  function handle_export()
+  {
+    const data = {
+      lengths, speed, direction, show_labels, mirror, show_trace,
+      show_crank_circle, line_width, canvas_bg, leg_count, leg_colors,
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = 'strandbeest-config.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  function handle_import_file(event)
+  {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      try
+      {
+        const data = JSON.parse(reader.result);
+
+        if (data.lengths)
+        {
+          for (let index = 0; index < length_keys.length; index++)
+          {
+            const value = data.lengths[length_keys[index]];
+            if (Number.isFinite(value) && input_refs.current[index])
+            {
+              input_refs.current[index].value = value;
+            }
+          }
+          handle_save();
+        }
+
+        if (Number.isFinite(data.speed)) set_speed(data.speed);
+        if (data.direction === 1 || data.direction === -1) set_direction(data.direction);
+        if (typeof data.show_labels === 'boolean') set_show_labels(data.show_labels);
+        if (typeof data.mirror === 'boolean') set_mirror(data.mirror);
+        if (typeof data.show_trace === 'boolean') set_show_trace(data.show_trace);
+        if (typeof data.show_crank_circle === 'boolean') set_show_crank_circle(data.show_crank_circle);
+        if (Number.isFinite(data.line_width)) set_line_width(data.line_width);
+        if (typeof data.canvas_bg === 'string') set_canvas_bg(data.canvas_bg);
+        if (Number.isInteger(data.leg_count)) set_leg_count(data.leg_count);
+        if (Array.isArray(data.leg_colors)) set_leg_colors(data.leg_colors);
+      }
+      catch (err)
+      {
+        console.error('Could not read config file', err);
+      }
+    };
+
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
   return (
-    <div style={page_style}>
-      <div style={left_column_style}>
-        <div style={panel_style}>
-          <PreviewCanvas mirror={mirror} lengths={lengths} is_playing={is_playing} leg_colors={leg_colors} leg_count={leg_count} speed={speed} show_labels={show_labels} on_ground_data={set_ground_data} />
+    <div style={app_shell_style}>
+      <header style={header_style}>
+        <div style={header_title_group_style}>
+          <span style={header_title_style}>Strandbeest Leg Simulator</span>
+          <span style={header_subtitle_style}>by siddharthan</span>
         </div>
-        <div style={controls_card_style}>
-          <div style={speed_strip_style}>
-            <span style={speed_label_style}>
-              Speed: {speed.toFixed(1)}
-            </span>
-            <input 
-            type="range"
-            min="0.1"
-            max="12"
-            step="0.1"
-            value={speed}
-            onChange={(event) => set_speed(Number(event.target.value))}
-            style={slide_bar_styles}
+        <div style={header_actions_style}>
+          <button style={header_button_style} className="press-btn" onClick={handle_export}>export config</button>
+          <button style={header_button_style} className="press-btn" onClick={() => file_input_ref.current?.click()}>import config</button>
+          <input
+            type="file"
+            accept="application/json"
+            ref={file_input_ref}
+            onChange={handle_import_file}
+            style={hidden_file_input_style}
+          />
+          <button style={header_button_style} className="press-btn" onClick={handle_reset_all}>reset all</button>
+        </div>
+      </header>
+
+      <div style={main_row_style}>
+        <div style={left_column_style}>
+          <div style={{ ...panel_style, background: canvas_bg }}>
+            <PreviewCanvas
+              mirror={mirror}
+              lengths={lengths}
+              is_playing={is_playing}
+              leg_colors={leg_colors}
+              leg_count={leg_count}
+              speed={speed}
+              direction={direction}
+              show_labels={show_labels}
+              show_trace={show_trace}
+              show_crank_circle={show_crank_circle}
+              line_width={line_width}
+              on_ground_data={set_ground_data}
             />
           </div>
-        </div>
-      </div>
 
-      <div style={right_panel_style}>
-        <div style={inputs_panel_style}>
-          <p>Controls (Measurements)</p>
-          <div style={button_row_style}>
-            <button style={button_style} className="press-btn" onClick={handle_save}>save</button>
-            <button style={button_style} className="press-btn" onClick={handle_revert}>revert</button>
+          <div style={card_style}>
+            <p style={section_title_style}>Playback</p>
+            <div style={button_row_style}>
+              <button style={button_style} className="press-btn" onClick={() => set_is_playing((prev) => !prev)}>
+                {is_playing ? 'pause' : 'play'}
+              </button>
+              <button style={button_style} className="press-btn" onClick={() => set_direction((prev) => -prev)}>
+                {direction === 1 ? 'direction: forward' : 'direction: reverse'}
+              </button>
+            </div>
+            <div style={speed_strip_style}>
+              <span style={speed_label_style}>speed: {speed.toFixed(1)}</span>
+              <input
+                type="range"
+                min="0.1"
+                max="12"
+                step="0.1"
+                value={speed}
+                onChange={(event) => set_speed(Number(event.target.value))}
+                style={slide_bar_styles}
+              />
+            </div>
           </div>
-          <label style={input_row_style}>
-            <span style={input_label_style}>A - B</span>
-            <input style={input_style} defaultValue={holy_numbers[0]} ref={(el) => { input_refs.current[0] = el; }} />
-          </label>
-          <label style={input_row_style}>
-            <span style={input_label_style}>B - D</span>
-            <input style={input_style} defaultValue={holy_numbers[1]} ref={(el) => { input_refs.current[1] = el; }} />
-          </label>
-          <label style={input_row_style}>
-            <span style={input_label_style}>B - F</span>
-            <input style={input_style} defaultValue={holy_numbers[2]} ref={(el) => { input_refs.current[2] = el; }} />
-          </label>
-          <label style={input_row_style}>
-            <span style={input_label_style}>E - B</span>
-            <input style={input_style} defaultValue={holy_numbers[3]} ref={(el) => { input_refs.current[3] = el; }} />
-          </label>
-          <label style={input_row_style}>
-            <span style={input_label_style}>E - D</span>
-            <input style={input_style} defaultValue={holy_numbers[4]} ref={(el) => { input_refs.current[4] = el; }} />
-          </label>
-          <label style={input_row_style}>
-            <span style={input_label_style}>E - G</span>
-            <input style={input_style} defaultValue={holy_numbers[5]} ref={(el) => { input_refs.current[5] = el; }} />
-          </label>
-          <label style={input_row_style}>
-            <span style={input_label_style}>G - F</span>
-            <input style={input_style} defaultValue={holy_numbers[6]} ref={(el) => { input_refs.current[6] = el; }} />
-          </label>
-          <label style={input_row_style}>
-            <span style={input_label_style}>G - H</span>
-            <input style={input_style} defaultValue={holy_numbers[7]} ref={(el) => { input_refs.current[7] = el; }} />
-          </label>
-          <label style={input_row_style}>
-            <span style={input_label_style}>H - F</span>
-            <input style={input_style} defaultValue={holy_numbers[8]} ref={(el) => { input_refs.current[8] = el; }} />
-          </label>
-          <label style={input_row_style}>
-            <span style={input_label_style}>D - C</span>
-            <input style={input_style} defaultValue={holy_numbers[9]} ref={(el) => { input_refs.current[9] = el; }} />
-          </label>
-          <label style={input_row_style}> 
-            <span style={input_label_style}>F - C</span>
-            <input style={input_style} defaultValue={holy_numbers[10]}  ref={(el) => { input_refs.current[10] = el; }} />
-          </label>
-          <label style={input_row_style}>
-            <span style={input_label_style}>(H) A/B</span>
-            <input style={input_style} defaultValue={holy_numbers[11]} ref={(el) => { input_refs.current[11] = el; }} />
-          </label>
-          <label style={input_row_style}>
-            <span style={input_label_style}>A - C</span>
-            <input style={input_style} defaultValue={holy_numbers[12]} ref={(el) => { input_refs.current[12] = el; }} />
-          </label>
         </div>
-        <div style={top_row_style}>
-          <div style={data_panel_style}>
+
+        <div style={sidebar_style}>
+          <div style={card_style}>
+            <p style={section_title_style}>Legs</p>
+            <label style={input_row_style}>
+              <span style={input_label_style}>leg count</span>
+              <select
+                style={select_style}
+                value={leg_count}
+                onChange={(event) => set_leg_count(Number(event.target.value))}
+              >
+                <option value={1}>1</option>
+                <option value={2}>2</option>
+                <option value={3}>3</option>
+                <option value={4}>4</option>
+              </select>
+            </label>
+            {Array.from({ length: leg_count }, (_, i) => (
+              <div key={i} style={leg_color_row_style}>
+                <span style={leg_color_label_style}>leg {i + 1}</span>
+                <input
+                  type="color"
+                  value={leg_colors[i] ?? '#1a85cc'}
+                  onChange={(event) => {
+                    const new_colors = [...leg_colors];
+                    new_colors[i] = event.target.value;
+                    set_leg_colors(new_colors);
+                  }}
+                  style={leg_color_input_style}
+                />
+              </div>
+            ))}
+            <label style={toggle_row_style}>
+              <input
+                type="checkbox"
+                checked={mirror}
+                className="press-btn"
+                onChange={(event) => set_mirror(event.target.checked)}
+                style={checkbox_style}
+              />
+              mirror leg
+            </label>
+          </div>
+
+          <div style={card_style}>
+            <p style={section_title_style}>Display</p>
+            <label style={toggle_row_style}>
+              <input type="checkbox" checked={show_labels} className="press-btn" onChange={(event) => set_show_labels(event.target.checked)} style={checkbox_style} />
+              label joints
+            </label>
+            <label style={toggle_row_style}>
+              <input type="checkbox" checked={show_trace} className="press-btn" onChange={(event) => set_show_trace(event.target.checked)} style={checkbox_style} />
+              show foot trace
+            </label>
+            <label style={toggle_row_style}>
+              <input type="checkbox" checked={show_crank_circle} className="press-btn" onChange={(event) => set_show_crank_circle(event.target.checked)} style={checkbox_style} />
+              show crank ring
+            </label>
+            <label style={input_row_style}>
+              <span style={input_label_style}>background</span>
+              <input type="color" value={canvas_bg} onChange={(event) => set_canvas_bg(event.target.value)} style={leg_color_input_style} />
+            </label>
+            <div style={speed_strip_style}>
+              <span style={speed_label_style}>line width: {line_width.toFixed(1)}</span>
+              <input
+                type="range"
+                min="1"
+                max="6"
+                step="0.5"
+                value={line_width}
+                onChange={(event) => set_line_width(Number(event.target.value))}
+                style={slide_bar_styles}
+              />
+            </div>
+          </div>
+
+          <div style={card_style}>
+            <p style={section_title_style}>Ground Data</p>
             <div style={data_row_style}>
               <span style={data_label_style}>ground angle</span>
               <span style={data_value_style}>{ground_data.angle !== null ? `${ground_data.angle}°` : '—'}</span>
@@ -656,53 +896,36 @@ export default function App()
               <span style={data_label_style}>ground distance</span>
               <span style={data_value_style}>{ground_data.distance !== null ? `${ground_data.distance}` : '—'}</span>
             </div>
-          </div>
-          <div style={paly_pause_panel_style}>
-            <button style={play_and_pause_bottun_style} className="press-btn" onClick={() => set_is_playing((prev) => !prev)}>play / pause</button>
+            <div style={data_row_style}>
+              <span style={data_label_style}>crank angle</span>
+              <span style={data_value_style}>{ground_data.crank_angle !== null ? `${ground_data.crank_angle}°` : '—'}</span>
+            </div>
           </div>
 
-          <div style={leg_count_panel_style}>
-            <span style={input_label_style}>number of legs</span>
-            <select
-              style={leg_count_select_style}
-              value={leg_count}
-              onChange={(event) => set_leg_count(Number(event.target.value))}>
-                <option value={1}>1</option>
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-              </select>
-          </div>
-          {Array.from({ length: leg_count }, (_, i) => (
-            <div key={i} style={leg_color_row_style}>
-              <span style={leg_color_label_style}>leg: {i + 1}</span>
-              <input
-                type="color"
-                value = {leg_colors[i]}
-                onChange={(event) => {
-                  const new_colors = [...leg_colors];
-                  new_colors[i] = event.target.value;
-                  set_leg_colors(new_colors);
-                }}
-                style={leg_color_input_style}
-              />
+          <div style={{ ...card_style, gridColumn: '1 / -1' }}>
+            <p
+              style={section_title_style}
+              title="Each field is the length of one rigid bar in Jansen's linkage, named by the two joints it connects."
+            >
+              Linkage Lengths
+            </p>
+            <div style={button_row_style}>
+              <button style={button_style} className="press-btn" onClick={handle_save}>save</button>
+              <button style={button_style} className="press-btn" onClick={handle_revert}>revert</button>
+              <button style={button_style} className="press-btn" onClick={handle_randomize}>randomize</button>
             </div>
-          ))}
-        </div>
-        <div style={top_row_style}>
-          <div style={labels_strip_style}>
-            <label style={show_labels_label_style}>
-              <input type="checkbox" checked={mirror} className="press-btn" onChange={(event) => set_mirror(event.target.checked)}
-              style={show_labels_checkbox_style} />
-              mirror leg
-            </label>
-          </div>
-          <div style={labels_strip_style}>
-            <label style={show_labels_label_style}>
-              <input type="checkbox" checked={show_labels} className="press-btn" onChange={(event) => set_show_labels(event.target.checked)}
-              style={show_labels_checkbox_style} />
-              label joints
-            </label>
+            <div style={lengths_grid_style}>
+              {length_bar_labels.map((label, index) => (
+                <label style={input_row_style} key={length_keys[index]}>
+                  <span style={input_label_style}>{label}</span>
+                  <input
+                    style={input_style}
+                    defaultValue={lengths[length_keys[index]] ?? holy_numbers[index]}
+                    ref={(el) => { input_refs.current[index] = el; }}
+                  />
+                </label>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -710,27 +933,82 @@ export default function App()
   );
 }
 
-const page_style =
+const app_shell_style =
 {
   display: 'flex',
+  flexDirection: 'column',
   width: '100vw',
   height: '100vh',
   boxSizing: 'border-box',
-  padding: '20px',
-  gap: '20px',
   overflow: 'hidden',
 };
 
-const panel_style =
+const header_style =
 {
-  width: 'calc(100vh - 40px)',
-  height: 'calc(80vh - 40px)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  height: '64px',
   flexShrink: 0,
-  border: '5px inset #adadad',
-  background: '#e8e8e8',
-  borderRadius: '1px',
+  padding: '0 20px',
+  boxSizing: 'border-box',
+  background: '#2b2b2b',
+  borderBottom: '4px inset #818181',
+};
+
+const header_title_group_style =
+{
   display: 'flex',
   flexDirection: 'column',
+  gap: '2px',
+};
+
+const header_title_style =
+{
+  color: '#ececec',
+  fontSize: '20px',
+  fontWeight: 600,
+  letterSpacing: '0.3px',
+};
+
+const header_subtitle_style =
+{
+  color: '#9a9a9a',
+  fontSize: '12px',
+};
+
+const header_actions_style =
+{
+  display: 'flex',
+  gap: '8px',
+  alignItems: 'center',
+};
+
+const header_button_style =
+{
+  padding: '8px 14px',
+  border: '3px outset #818181',
+  background: '#383838',
+  borderRadius: '1px',
+  color: '#dddddd',
+  fontSize: '12px',
+  cursor: 'pointer',
+};
+
+const hidden_file_input_style =
+{
+  display: 'none',
+};
+
+const main_row_style =
+{
+  display: 'flex',
+  flex: 1,
+  minHeight: 0,
+  gap: '20px',
+  padding: '20px',
+  boxSizing: 'border-box',
+  overflow: 'hidden',
 };
 
 const left_column_style =
@@ -738,40 +1016,19 @@ const left_column_style =
   display: 'flex',
   flexDirection: 'column',
   gap: '12px',
-  width: 'calc(100vh - 40px)',
-  flexShrink: 0,
+  width: '55%',
+  minWidth: '380px',
+  height: '100%',
 };
 
-const controls_card_style = 
+const panel_style =
 {
-  width: '100%',
+  flex: 1,
+  minHeight: 0,
   border: '5px inset #adadad',
-  background: '#bdbdbd',
   borderRadius: '1px',
   display: 'flex',
   flexDirection: 'column',
-}
-
-const speed_strip_style =
-{
-  height: '54px',
-  borderBottom: '3px inset #adadad',
-  display:'flex',
-  alignItems: 'center',
-  gap: '10px',
-  padding: '6px 12px',
-  boxSizing: 'border-box',
-};
-
-const labels_strip_style =
-{
-  height: '30px',
-  display: 'flex',
-  alignItems: 'center',
-  padding: '5px 10px',
-  boxSizing: 'border-box',
-  height: '54px',
-  border: '3px inset #494949',
 };
 
 const preview_canvas_style =
@@ -781,28 +1038,28 @@ const preview_canvas_style =
   flex: 1,
 };
 
-const right_panel_style =
+const sidebar_style =
 {
   flex: 1,
-  height: 'calc(100vh - 40px)',
+  height: '100%',
   boxSizing: 'border-box',
   padding: '16px',
   border: '5px inset #818181',
   background: '#bdbdbd',
   borderRadius: '1px',
-  display: 'flex',
-  flexDirection: 'row',
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+  gridAutoRows: 'min-content',
   gap: '16px',
-  overflowY: 'scroll',
+  overflowY: 'auto',
   minWidth: 0,
-  alignItems: 'flex-start',
 };
 
-const inputs_panel_style =
+const card_style =
 {
-  width: '300px',
+  width: '100%',
   boxSizing: 'border-box',
-  padding: '16px',
+  padding: '14px',
   border: '5px inset #818181',
   background: '#383838',
   borderRadius: '1px',
@@ -811,17 +1068,27 @@ const inputs_panel_style =
   gap: '10px',
 };
 
+const section_title_style =
+{
+  margin: 0,
+  color: '#ececec',
+  fontSize: '13px',
+  fontWeight: 600,
+  letterSpacing: '0.6px',
+  textTransform: 'uppercase',
+  paddingBottom: '6px',
+  borderBottom: '2px solid #4d4d4d',
+};
+
 const button_row_style =
 {
   display: 'flex',
   gap: '8px',
-  paddingBottom: '6px',
 };
 
 const button_style =
 {
   flex: 1,
-  height: '90%',
   padding: '8px 10px',
   border: '3px outset #818181',
   background: '#383838',
@@ -831,17 +1098,27 @@ const button_style =
   cursor: 'pointer',
 };
 
-const play_and_pause_bottun_style =
+const speed_strip_style =
 {
-  width: '100%',
-  padding: '8px 10px',
-  border: '3px outset #818181',
-  background: '#383838',
-  borderRadius: '1px',
-  color: '#dddddd',
-  fontSize: '12px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+};
+
+const speed_label_style =
+{
+  color: '#ececec',
+  fontSize: '13px',
+  width: '120px',
+  flexShrink: 0,
+};
+
+const slide_bar_styles =
+{
+  flex: 1,
+  accentColor: '#576066',
   cursor: 'pointer',
-}
+};
 
 const input_row_style =
 {
@@ -853,6 +1130,7 @@ const input_row_style =
 const input_label_style =
 {
   width: '100px',
+  flexShrink: 0,
   color: '#d8d8d8',
   fontSize: '13px',
 };
@@ -869,78 +1147,35 @@ const input_style =
   minWidth: 0,
 };
 
-const speed_label_style =
-{
-  color: '#333333',
-  fontSize: '13px',
-  width: '80px',
-};
-
-const slide_bar_styles = 
+const select_style =
 {
   flex: 1,
-  accentColor: '#576066',
-  cursor: 'pointer',
-};
-
-const show_labels_label_style =
-{
-  display: 'flex',
-  alignItems: 'center',
-  gap: '5px',
-  color: '#333333',
-  fontSize: '18px',
-  cursor: 'pointer',
-  //width: '25%',
-};
-
-const show_labels_checkbox_style =
-{
-  accentColor: '#2b2a3f',
-  cursor: 'pointer',
-  width: '16px',
-  height: '16px',
-};
-
-const leg_count_panel_style =
-{
-  display: 'flex',
-  alignItems: 'center',
-  gap: '70px',
-  padding: '10px',
-  width: '269px',
-  border: '5px inset #818181',
-  background: '#383838',
-  borderRadius: '1px',
-};
-
-const leg_count_select_style =
-{
   cursor: 'pointer',
   fontSize: '14px',
-  width: '100px',
   padding: '8px 10px',
   border: '3px inset #383838',
   background: '#111111',
   color: '#a5a8ad',
+  minWidth: 0,
 };
 
-const paly_pause_panel_style =
-{
-  width: '300px',
-  padding: '10px',
-  border: '5px inset #818181',
-  background: '#383838',
-  borderRadius: '1px',
-  boxSizing: 'border-box',
-};
-
-const top_row_style =
+const toggle_row_style =
 {
   display: 'flex',
-  gap: '10px',
-  flexDirection: 'column',
-  alignItems: 'flex-start',
+  alignItems: 'center',
+  gap: '8px',
+  color: '#ececec',
+  fontSize: '14px',
+  cursor: 'pointer',
+};
+
+const checkbox_style =
+{
+  accentColor: '#8bd678',
+  cursor: 'pointer',
+  width: '16px',
+  height: '16px',
+  flexShrink: 0,
 };
 
 const leg_color_row_style =
@@ -948,19 +1183,14 @@ const leg_color_row_style =
   display: 'flex',
   alignItems: 'center',
   gap: '10px',
-  paddingTop: '1px',
   width: '100%',
-  border: '3px inset #818181',
-  background: '#383838',
 };
 
 const leg_color_label_style =
 {
   color: '#ececec',
-  fontSize: '15px',
-  flex: 4, 
-  paddingLeft: '10px',
-  paddingBottom: '5px',
+  fontSize: '14px',
+  flex: 1,
 };
 
 const leg_color_input_style =
@@ -972,33 +1202,31 @@ const leg_color_input_style =
   borderRadius: '1px',
   cursor: 'pointer',
   padding: '1px 1px',
-};
-
-const data_panel_style =
-{
-  width: '300px',
-  padding: '10px',
-  border: '5px inset #818181',
-  background: '#383838',
-  borderRadius: '1px',
-  boxSizing: 'border-box',
+  flexShrink: 0,
 };
 
 const data_row_style =
 {
   display: 'flex',
   justifyContent: 'space-between',
-  paddingBottom: '6px',
+  gap: '10px',
 };
 
 const data_label_style =
 {
   color: '#ececec',
-  fontSize: '15px',
+  fontSize: '14px',
 };
 
 const data_value_style =
 {
   color: '#ececec',
-  fontSize: '15px',
-};  
+  fontSize: '14px',
+};
+
+const lengths_grid_style =
+{
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+  gap: '8px 16px',
+};

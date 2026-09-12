@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
+// GitHub Pages custom-domain hosting should use the root base.
 export default defineConfig({
   plugins: [react()],
-  base: '/Strandbeest-simulator'
+  base: '/',
 })
